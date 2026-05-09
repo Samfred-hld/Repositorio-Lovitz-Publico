@@ -1,35 +1,41 @@
 class HabitRecord {
   final String? id;
   final String habitId;
-  final String date;
+  final String? userId;
+  final String logDate;
   final bool completed;
   final double? value;
-  final int? qualityRating;
+  final int? quality;
+  final int points;
   final String? notes;
-  final DateTime? createdDate;
+  final DateTime? createdAt;
 
   HabitRecord({
     this.id,
     required this.habitId,
-    required this.date,
+    this.userId,
+    required this.logDate,
     required this.completed,
     this.value,
-    this.qualityRating,
+    this.quality,
+    this.points = 0,
     this.notes,
-    this.createdDate,
+    this.createdAt,
   });
 
   factory HabitRecord.fromJson(Map<String, dynamic> json) {
     return HabitRecord(
       id: json['id'],
       habitId: json['habit_id'] ?? '',
-      date: json['date'] ?? '',
+      userId: json['user_id'],
+      logDate: json['log_date'] ?? '',
       completed: json['completed'] ?? false,
       value: json['value']?.toDouble(),
-      qualityRating: json['quality_rating'],
+      quality: json['quality'],
+      points: json['points'] ?? 0,
       notes: json['notes'],
-      createdDate: json['created_date'] != null
-          ? DateTime.tryParse(json['created_date'])
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'])
           : null,
     );
   }
@@ -37,11 +43,35 @@ class HabitRecord {
   Map<String, dynamic> toJson() {
     return {
       'habit_id': habitId,
-      'date': date,
+      'log_date': logDate,
       'completed': completed,
       'value': value,
-      'quality_rating': qualityRating,
+      'quality': quality,
       'notes': notes,
     };
+  }
+
+  HabitRecord copyWith({
+    String? id,
+    String? habitId,
+    String? userId,
+    String? logDate,
+    bool? completed,
+    double? value,
+    int? quality,
+    int? points,
+    String? notes,
+  }) {
+    return HabitRecord(
+      id: id ?? this.id,
+      habitId: habitId ?? this.habitId,
+      userId: userId ?? this.userId,
+      logDate: logDate ?? this.logDate,
+      completed: completed ?? this.completed,
+      value: value ?? this.value,
+      quality: quality ?? this.quality,
+      points: points ?? this.points,
+      notes: notes ?? this.notes,
+    );
   }
 }

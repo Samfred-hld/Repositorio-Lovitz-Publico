@@ -22,8 +22,8 @@ class AppUser {
       fullName: json['full_name'] ?? '',
       role: json['role'],
       growthPoints: json['growth_points']?.toDouble(),
-      createdDate: json['created_date'] != null
-          ? DateTime.tryParse(json['created_date'])
+      createdDate: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'])
           : null,
     );
   }

@@ -1,23 +1,22 @@
 class ApiConstants {
-  static const String baseUrl =
-      'https://maslow-progress-70d3dad7.base44.app/api';
-  static const String apiKey = '813c92bd6bac4b0db5cd42fdf17dee33';
-  static const String appId = '68a771320ec4ba9670d3dad7';
+  // Supabase
+  static const String supabaseUrl = 'SUA_SUPABASE_URL';
+  static const String supabaseAnonKey = 'SUA_SUPABASE_ANON_KEY';
 
-  // Endpoints
-  static const String habits = '/entities/Habit';
-  static const String habitRecords = '/entities/HabitRecord';
-  static const String achievements = '/entities/Achievement';
-  static const String journalEntries = '/entities/JournalEntry';
-  static const String users = '/entities/User';
+  // Tabelas
+  static const String usersTable = 'users';
+  static const String habitsTable = 'habits';
+  static const String habitLogsTable = 'habit_logs';
+  static const String achievementsTable = 'achievements';
+  static const String userAchievementsTable = 'user_achievements';
 }
 
 class MaslowLevels {
-  static const int physiologic = 1;  // Necessidades fisiológicas
-  static const int safety = 2;       // Segurança
-  static const int social = 3;       // Social
-  static const int esteem = 4;       // Estima
-  static const int selfActualization = 5; // Autorrealização
+  static const int physiologic = 1;
+  static const int safety = 2;
+  static const int social = 3;
+  static const int esteem = 4;
+  static const int selfActualization = 5;
 
   static String getName(int level) {
     switch (level) {

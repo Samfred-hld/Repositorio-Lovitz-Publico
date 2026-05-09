@@ -51,11 +51,11 @@ class Habit {
       isActive: json['is_active'] ?? true,
       streakCurrent: json['streak_current'] ?? 0,
       streakBest: json['streak_best'] ?? 0,
-      createdDate: json['created_date'] != null
-          ? DateTime.tryParse(json['created_date'])
+      createdDate: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'])
           : null,
-      updatedDate: json['updated_date'] != null
-          ? DateTime.tryParse(json['updated_date'])
+      updatedDate: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'])
           : null,
     );
   }
