@@ -41,18 +41,32 @@ App Flutter de rastreamento de hábitos baseado na Pirâmide de Maslow. Migraç�
 - `profile_screen.dart`: card do usuário, stats em tempo real, menu configurações, logout
 
 ### 4. Configuração Supabase
-- Projeto criado no Supabase (mvrcjazxjkjvirnbgiwt)
+- Projeto criado no Supabase: **clasnbnmudesgmwlgouh** (URL: `https://clasnbnmudesgmwlgouh.supabase.co`)
 - Schema SQL rodado com sucesso
-- Credenciais configuradas em `constants.dart`
+- Credenciais (anon key) configuradas em `constants.dart`
+- **Nota:** Projeto anterior `mvrcjazxjkjvirnbgiwt` foi substituído
+
+### 5. Redesign da Pirâmide de Maslow
+- **Cantos arredondados** via trapézios com `arcToPoint` (raio 14px)
+- **Formato de pirâmide real**: base 95% → topo 40% da largura
+- **Preenchimento sólido** com gradiente sutil (sem glow excessivo)
+- **Círculos de progresso** com % ao lado de cada nível
+- **Emojis** (🔥🛡️❤️⭐🌟) posicionados fora da pirâmide
+- **Seção "Continue sua jornada"** com círculo de progresso grande (78%)
+- **Cores atualizadas**: amarelo (base), laranja, rosa, azul, roxo (topo)
+- **Arquivos alterados:**
+  - `lib/widgets/maslow_pyramid_painter.dart` — painter redesenhado
+  - `lib/screens/home_screen.dart` — layout pirâmide + labels + círculos + seção jornada
+  - `lib/theme/app_theme.dart` — cores Maslow atualizadas
 
 ---
 
 ## ⚠️ Pendente / Em andamento
 
-### Erro de CORS no Chrome (localhost)
-- **Problema:** `ClientException: Failed to fetch` ao fazer login
-- **Solução:** Adicionar `http://localhost:PORTA` nas Redirect URLs do Supabase
-  - Painel → Project Settings → Authentication → URL Configuration → Add URL
+### Configuração Supabase
+- **Redirect URLs:** Adicionar `http://localhost:3000` no painel Supabase
+  - Painel → Authentication → URL Configuration → Add URL
+- **Email Auth:** Confirmar que está habilitado em Authentication → Providers
 - **Status:** Aguardando usuário configurar
 
 ---
@@ -60,7 +74,7 @@ App Flutter de rastreamento de hábitos baseado na Pirâmide de Maslow. Migraç�
 ## 📋 Próximos Passos (Roadmap)
 
 ### Prioridade 1 — Estabilizar
-- [ ] Resolver CORS (redirect URL no Supabase)
+- [ ] Configurar CORS (redirect URL no Supabase)
 - [ ] Testar fluxo completo: cadastro → login → criar hábito → registrar → logout
 
 ### Prioridade 2 — Telas faltantes
@@ -124,8 +138,8 @@ lovitz-app/
 ```
 
 ### Supabase
-- **Projeto:** mvrcjazxjkjvirnbgiwt
-- **URL:** https://mvrcjazxjkjvirnbgiwt.supabase.co
+- **Projeto:** clasnbnmudesgmwlgouh
+- **URL:** https://clasnbnmudesgmwlgouh.supabase.co
 - **Auth:** Email (habilitado)
 - **Tabelas:** users, habits, habit_logs, achievements, user_achievements
 
@@ -134,21 +148,22 @@ lovitz-app/
 - **Surface:** `#1E1E38`
 - **Primary:** `#8B70E8` (roxo)
 - **Accent:** `#E040FB` (rosa), `#FF8C42` (laranja), `#6FCF97` (verde)
+- **Maslow:** `#E8C840` (fisiológico), `#E89040` (segurança), `#D45BA0` (pertencimento), `#5B8FD4` (estima), `#8B6CE0` (autorrealização)
 - **Fontes:** AppTextStyles (heading1-3, bodyLarge/Medium/Small, buttonText)
 
 ---
 
 ## 🔧 Comandos úteis
 
-```bash
+```powershell
 # Pull das alterações
 git pull
 
 # Instalar/atualizar dependências
 flutter pub get
 
-# Rodar no Chrome
-flutter run
+# Rodar no Chrome (alias configurado no PowerShell)
+flutter-run
 
 # Hot reload (enquanto o app roda)
 r
@@ -161,6 +176,6 @@ R
 
 ## ⚠️ Notas de Segurança
 
-- **Token GitHub** foi exposto em chat — deve ser revogado
+- **Token GitHub** foi exposto em chat — deve ser revogado e substituído
 - **Service role key** do Supabase foi compartilhada — NÃO usar no app (só anon key)
 - A anon key já está configurada em `constants.dart` (segura pra client-side)

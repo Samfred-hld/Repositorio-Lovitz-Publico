@@ -8,7 +8,7 @@ class MaslowPyramidPainter extends CustomPainter {
 
   const MaslowPyramidPainter({
     required this.levels,
-    this.cornerRadius = 16.0,
+    this.cornerRadius = 14.0,
   });
 
   Color _lighten(Color c, double amount) {
@@ -107,23 +107,18 @@ class MaslowPyramidPainter extends CustomPainter {
         radius: cornerRadius,
       );
 
-      // Subtle glow — only 2 passes, contained
-      final glowPaint1 = Paint()
-        ..color = level.color.withOpacity(0.08)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 12.0
-        ..strokeJoin = StrokeJoin.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-      canvas.drawPath(path, glowPaint1);
+      // 1. Outer glow — very subtle, small radius
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = level.color.withOpacity(0.12)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 8.0
+          ..strokeJoin = StrokeJoin.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+      );
 
-      final glowPaint2 = Paint()
-        ..color = level.color.withOpacity(0.15)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.0
-        ..strokeJoin = StrokeJoin.round;
-      canvas.drawPath(path, glowPaint2);
-
-      // Fill with gradient
+      // 2. Fill — solid gradient
       canvas.drawPath(
         path,
         Paint()
@@ -131,22 +126,32 @@ class MaslowPyramidPainter extends CustomPainter {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              _lighten(level.color, 0.10),
+              _lighten(level.color, 0.08),
               level.color,
-              _darken(level.color, 0.06),
+              _darken(level.color, 0.05),
             ],
             stops: const [0.0, 0.5, 1.0],
           ).createShader(Rect.fromLTWH(0, yTop, W, levelHeight)),
       );
 
-      // Top highlight
+      // 3. Inner glow on edges — subtle
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = level.color.withOpacity(0.30)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.0
+          ..strokeJoin = StrokeJoin.round,
+      );
+
+      // 4. Top highlight
       if (i > 0) {
-        final highlightTl = W / 2 - topWidth / 2 + cornerRadius;
-        final highlightTr = W / 2 + topWidth / 2 - cornerRadius;
-        if (highlightTr > highlightTl) {
+        final hl = W / 2 - topWidth / 2 + cornerRadius;
+        final hr = W / 2 + topWidth / 2 - cornerRadius;
+        if (hr > hl) {
           canvas.drawLine(
-            Offset(highlightTl, yTop + 1),
-            Offset(highlightTr, yTop + 1),
+            Offset(hl, yTop + 1),
+            Offset(hr, yTop + 1),
             Paint()
               ..color = Colors.white.withOpacity(0.20)
               ..strokeWidth = 1.0
@@ -155,11 +160,11 @@ class MaslowPyramidPainter extends CustomPainter {
         }
       }
 
-      // Border
+      // 5. Border
       canvas.drawPath(
         path,
         Paint()
-          ..color = Colors.white.withOpacity(0.08)
+          ..color = Colors.white.withOpacity(0.10)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0,
       );
