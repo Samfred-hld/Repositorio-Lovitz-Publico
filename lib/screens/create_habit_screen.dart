@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/habit.dart';
-import '../utils/constants.dart';
 
-// ============================================================
-// CORES EXATAS DO HTML
-// ============================================================
 class _C {
   static const bg = Color(0xFF0C0A18);
   static const card = Color(0xCC1A162B);
@@ -36,7 +32,7 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
   final _nameController = TextEditingController();
   final _api = ApiService();
   int _selectedFrequency = 0;
-  int _selectedLevel = 0;
+  int _selectedLevel = -1; // -1 = none selected
   bool _saving = false;
   final _levelPcts = [0, 0, 0, 0, 0];
 
@@ -72,9 +68,11 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Digite o nome do hábito'), backgroundColor: _C.neonRed),
-      );
+      _showSnack('Digite o nome do hábito', _C.neonRed);
+      return;
+    }
+    if (_selectedLevel < 0) {
+      _showSnack('Selecione um nível da pirâmide', _C.neonRed);
       return;
     }
     setState(() => _saving = true);
@@ -86,36 +84,38 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
         frequency: _freqVal,
       ));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"$name" criado!'), backgroundColor: const Color(0xFF6FCF97)),
-        );
+        _showSnack('"$name" criado!', const Color(0xFF6FCF97));
         Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e'), backgroundColor: _C.neonRed),
-        );
-      }
+      if (mounted) _showSnack('Erro: $e', _C.neonRed);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
+  void _showSnack(String msg, Color bg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: bg));
+  }
+
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _C.bg,
       body: Stack(
         children: [
-          CustomPaint(size: MediaQuery.of(context).size, painter: _GridPainter()),
+          CustomPaint(
+              size: MediaQuery.of(context).size, painter: _GridPainter()),
           SafeArea(
             child: Column(
               children: [
                 _header(),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
                     child: _card(),
                   ),
                 ),
@@ -131,30 +131,38 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
 
   Widget _header() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 24, 16),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back_ios_new_rounded, color: _C.white80, size: 28),
-          ),
-          Text(
-            'Criar Novo Hábito',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: _C.neonPink,
-              shadows: [
-                Shadow(color: const Color(0xFFBF00FF), blurRadius: 10),
-                Shadow(color: const Color(0xBF00FF00), blurRadius: 20),
-                Shadow(color: const Color(0x99BF00FF), blurRadius: 30),
-                Shadow(color: const Color(0xFFBF00FF), blurRadius: 4),
-                Shadow(color: const Color(0xFFBF00FF), blurRadius: 40),
-              ],
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.06),
+                border: Border.all(color: Colors.white.withOpacity(0.10)),
+              ),
+              child: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: _C.white80, size: 20),
             ),
           ),
-          const SizedBox(width: 28),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'Criar Novo Hábito',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: _C.neonPink,
+                shadows: const [
+                  Shadow(color: Color(0xFFBF00FF), blurRadius: 10),
+                  Shadow(color: Color(0xBF00FF00), blurRadius: 20),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -164,21 +172,21 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
 
   Widget _card() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _C.card,
-        borderRadius: BorderRadius.circular(40),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(color: _C.white10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _nameInput(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           _frequency(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           _maslow(),
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
           _saveBtn(),
         ],
       ),
@@ -234,8 +242,11 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Frequência',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
-        const SizedBox(height: 16),
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white)),
+        const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
             color: _C.toggleBg,
@@ -254,13 +265,13 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
                           painter: _NeonBorderPainter(
                             color: _C.neonPurple,
                             radius: 100,
-                            outerBlur: 10,
-                            outerOpacity: 0.8,
-                            insetBlur: 5,
-                            insetOpacity: 0.5,
+                            outerBlur: 8,
+                            outerOpacity: 0.7,
+                            insetBlur: 4,
+                            insetOpacity: 0.4,
                           ),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
                               color: _C.cardSolid,
                               borderRadius: BorderRadius.circular(100),
@@ -269,18 +280,18 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
                               child: Text(labels[i],
                                   style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 14,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w600)),
                             ),
                           ),
                         )
                       : Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Center(
                             child: Text(labels[i],
                                 style: const TextStyle(
                                     color: _C.white40,
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w600)),
                           ),
                         ),
@@ -294,24 +305,38 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
   }
 
   // ─── MASLOW ──────────────────────────────────────────────
-  // glow-red: box-shadow: 0 0 20px rgba(255,77,77,0.6), inset 0 0 10px rgba(255,77,77,0.4)
 
   Widget _maslow() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Nível da Pirâmide de Maslow',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
-        const SizedBox(height: 24),
-        Row(
-          children: List.generate(5, (i) {
-            return Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(left: i > 0 ? 8 : 0),
-                child: _levelItem(i),
-              ),
-            );
-          }),
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white)),
+        const SizedBox(height: 6),
+        Text('Toque para selecionar',
+            style: TextStyle(
+                fontSize: 13, color: Colors.white.withOpacity(0.40))),
+        const SizedBox(height: 16),
+        // Grid 3+2 layout for better fit
+        Column(
+          children: [
+            Row(
+              children: List.generate(3, (i) => Expanded(child: _levelItem(i))),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Spacer(flex: 1),
+                Expanded(flex: 2, child: _levelItem(3)),
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: _levelItem(4)),
+                const Spacer(flex: 1),
+              ],
+            ),
+          ],
         ),
       ],
     );
@@ -323,116 +348,140 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
     final c = d.color;
     final pct = _levelPcts[idx];
 
-    return GestureDetector(
-      onTap: () => setState(() => _selectedLevel = idx),
-      child: Column(
-        children: [
-          // CustomPaint com glow outer + inset (igual ao CSS glow-*)
-          SizedBox(
-            width: 52,
-            height: 52,
-            child: CustomPaint(
-              painter: _GlowBoxPainter(
-                color: c,
-                radius: 12,
-                outerBlur: 20,
-                outerOpacity: 0.6,
-                insetBlur: 10,
-                insetOpacity: 0.4,
-              ),
-              child: Container(
-                width: 52,
-                height: 52,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedLevel = idx),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: sel ? c.withOpacity(0.12) : Colors.white.withOpacity(0.03),
+            border: Border.all(
+              color: sel ? c.withOpacity(0.6) : Colors.white.withOpacity(0.06),
+              width: sel ? 2 : 1,
+            ),
+            boxShadow: sel
+                ? [
+                    BoxShadow(
+                        color: c.withOpacity(0.25), blurRadius: 16, spreadRadius: 1),
+                    BoxShadow(
+                        color: c.withOpacity(0.10), blurRadius: 32),
+                  ]
+                : [],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon with glow when selected
+              Container(
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: _C.inputBg,
-                  borderRadius: BorderRadius.circular(12),
+                  shape: BoxShape.circle,
+                  color: sel
+                      ? c.withOpacity(0.15)
+                      : Colors.white.withOpacity(0.04),
+                  boxShadow: sel
+                      ? [
+                          BoxShadow(
+                              color: c.withOpacity(0.5), blurRadius: 12),
+                          BoxShadow(
+                              color: c.withOpacity(0.2), blurRadius: 24),
+                        ]
+                      : [],
                 ),
-                child: Icon(d.icon, color: c, size: 28),
+                child: Icon(d.icon,
+                    color: sel ? c : c.withOpacity(0.5), size: 24),
               ),
-            ),
+              const SizedBox(height: 8),
+              // Label
+              Text(
+                d.label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                  color: sel ? c : c.withOpacity(0.5),
+                ),
+              ),
+              const SizedBox(height: 2),
+              // Percentage
+              Text(
+                '$pct%',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: sel ? c : c.withOpacity(0.4),
+                  shadows: sel
+                      ? [
+                          Shadow(color: c.withOpacity(0.6), blurRadius: 6),
+                        ]
+                      : [],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            '${d.label}\n($pct%)',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: c,
-              height: 1.3,
-              shadows: [
-                Shadow(color: c.withOpacity(0.8), blurRadius: 6),
-                Shadow(color: c.withOpacity(0.4), blurRadius: 12),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   // ─── BOTÃO SALVAR ────────────────────────────────────────
-  // btn-save-glow: box-shadow: 0 0 25px rgba(191,0,255,0.9), 0 0 40px rgba(191,0,255,0.5)
-  // + shadow-[0_0_20px_#bf00ff,inset_0_0_10px_#bf00ff]
 
   Widget _saveBtn() {
     return GestureDetector(
       onTap: _saving ? null : _save,
-      child: SizedBox(
+      child: Container(
         width: double.infinity,
-        child: CustomPaint(
-          painter: _saving
-              ? _GlowBoxPainter(
-                  color: _C.neonPurple,
-                  radius: 100,
-                  outerBlur: 0,
-                  outerOpacity: 0,
-                  insetBlur: 0,
-                  insetOpacity: 0,
-                )
-              : _GlowBoxPainter(
-                  color: _C.neonPurple,
-                  radius: 100,
-                  outerBlur: 30,
-                  outerOpacity: 0.8,
-                  insetBlur: 10,
-                  insetOpacity: 0.4,
-                  // Camadas extras de glow (btn-save-glow)
-                  extraGlow: [
-                    _GlowLayer(blur: 25, opacity: 0.9),
-                    _GlowLayer(blur: 40, opacity: 0.5),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(100),
+          gradient: _saving
+              ? null
+              : LinearGradient(
+                  colors: [
+                    _C.neonPurple.withOpacity(0.20),
+                    _C.neonBlue.withOpacity(0.15),
                   ],
                 ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(
-                color: _saving
-                    ? _C.neonPurple.withOpacity(0.3)
-                    : _C.neonPurple.withOpacity(0.8),
-                width: 2,
-              ),
-            ),
-            child: Center(
-              child: _saving
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: _C.neonPurple),
-                    )
-                  : const Text(
-                      'Salvar Hábito',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-            ),
+          border: Border.all(
+            color: _saving
+                ? _C.neonPurple.withOpacity(0.2)
+                : _C.neonPurple.withOpacity(0.7),
+            width: 2,
           ),
+          boxShadow: _saving
+              ? []
+              : [
+                  BoxShadow(
+                      color: _C.neonPurple.withOpacity(0.3),
+                      blurRadius: 20,
+                      spreadRadius: 1),
+                  BoxShadow(
+                      color: _C.neonPurple.withOpacity(0.15),
+                      blurRadius: 40),
+                ],
+        ),
+        child: Center(
+          child: _saving
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: _C.neonPurple),
+                )
+              : const Text(
+                  'Salvar Hábito',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
         ),
       ),
     );
@@ -457,107 +506,9 @@ class _Lv {
 }
 
 // ============================================================
-// CUSTOM PAINTERS — Glow real com Canvas
+// CUSTOM PAINTERS
 // ============================================================
 
-/// Glow box com outer + inset (replica CSS box-shadow com inset)
-class _GlowBoxPainter extends CustomPainter {
-  final Color color;
-  final double radius;
-  final double outerBlur;
-  final double outerOpacity;
-  final double insetBlur;
-  final double insetOpacity;
-  final List<_GlowLayer>? extraGlow;
-
-  _GlowBoxPainter({
-    required this.color,
-    required this.radius,
-    required this.outerBlur,
-    required this.outerOpacity,
-    required this.insetBlur,
-    required this.insetOpacity,
-    this.extraGlow,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Radius.circular(radius),
-    );
-
-    // ── OUTER GLOW ──
-    // Desenha múltiplas camadas de blur para simular box-shadow
-    if (outerBlur > 0) {
-      // Camada principal
-      _drawGlowLayer(canvas, rrect, outerBlur, outerOpacity);
-
-      // Camadas extras (btn-save-glow)
-      if (extraGlow != null) {
-        for (final layer in extraGlow!) {
-          _drawGlowLayer(canvas, rrect, layer.blur, layer.opacity);
-        }
-      }
-    }
-
-    // ── BORDER (borda visível) ──
-    final borderPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = color.withOpacity(0.8);
-    canvas.drawRRect(rrect, borderPaint);
-
-    // ── INSET GLOW ──
-    // Clipa dentro do shape e desenha blur interno
-    if (insetBlur > 0) {
-      canvas.save();
-      canvas.clipRRect(rrect);
-
-      // Desenha o glow interno como preenchimento com blur
-      final insetPaint = Paint()
-        ..color = color.withOpacity(insetOpacity)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, insetBlur)
-        ..style = PaintingStyle.fill;
-      canvas.drawRRect(rrect, insetPaint);
-
-      // Halo interno mais suave
-      final innerHalo = Paint()
-        ..color = color.withOpacity(insetOpacity * 0.5)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, insetBlur * 2)
-        ..style = PaintingStyle.fill;
-      canvas.drawRRect(rrect, innerHalo);
-
-      canvas.restore();
-    }
-  }
-
-  void _drawGlowLayer(Canvas canvas, RRect rrect, double blur, double opacity) {
-    final paint = Paint()
-      ..color = color.withOpacity(opacity)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawRRect(rrect, paint);
-
-    // Segundo passe mais suave (halo)
-    final halo = Paint()
-      ..color = color.withOpacity(opacity * 0.4)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur * 1.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawRRect(rrect, halo);
-  }
-
-  @override
-  bool shouldRepaint(covariant _GlowBoxPainter old) =>
-      old.color != color ||
-      old.outerBlur != outerBlur ||
-      old.insetBlur != insetBlur ||
-      old.outerOpacity != outerOpacity;
-}
-
-/// Neon border com outer + inset glow (para input e toggle)
 class _NeonBorderPainter extends CustomPainter {
   final Color color;
   final double radius;
@@ -582,17 +533,17 @@ class _NeonBorderPainter extends CustomPainter {
       Radius.circular(radius),
     );
 
-    // ── OUTER GLOW ──
     if (outerBlur > 0) {
-      final outerPaint = Paint()
-        ..color = color.withOpacity(outerOpacity)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, outerBlur)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
-      canvas.drawRRect(rrect, outerPaint);
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = color.withOpacity(outerOpacity)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, outerBlur)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
     }
 
-    // ── BORDER ──
     canvas.drawRRect(
       rrect,
       Paint()
@@ -601,17 +552,16 @@ class _NeonBorderPainter extends CustomPainter {
         ..color = color.withOpacity(outerOpacity),
     );
 
-    // ── INSET GLOW ──
     if (insetBlur > 0) {
       canvas.save();
       canvas.clipRRect(rrect);
-
-      final insetPaint = Paint()
-        ..color = color.withOpacity(insetOpacity)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, insetBlur)
-        ..style = PaintingStyle.fill;
-      canvas.drawRRect(rrect, insetPaint);
-
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = color.withOpacity(insetOpacity)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, insetBlur)
+          ..style = PaintingStyle.fill,
+      );
       canvas.restore();
     }
   }
@@ -621,20 +571,12 @@ class _NeonBorderPainter extends CustomPainter {
       old.color != color || old.outerBlur != outerBlur;
 }
 
-class _GlowLayer {
-  final double blur;
-  final double opacity;
-  const _GlowLayer({required this.blur, required this.opacity});
-}
-
-// ─── GRID BACKGROUND ──────────────────────────────────────
-
 class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
-      ..color = Colors.white.withOpacity(0.08)
-      ..strokeWidth = 1;
+      ..color = Colors.white.withOpacity(0.06)
+      ..strokeWidth = 0.5;
     for (double y = 0; y < size.height; y += 40) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
     }
