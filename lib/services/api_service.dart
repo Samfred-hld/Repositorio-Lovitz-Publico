@@ -35,6 +35,9 @@ class ApiService {
   Future<Habit> createHabit(Habit habit) async {
     if (_userId.isEmpty) throw Exception('Usuário não autenticado');
 
+    // Ensure user row exists in users table (FK constraint)
+    await _ensureUserExists();
+
     final data = habit.toJson();
     data['user_id'] = _userId;
 
@@ -45,6 +48,25 @@ class ApiService {
         .single();
 
     return Habit.fromJson(result);
+  }
+
+  /// Ensures the authenticated user has a row in the users table.
+  /// Fixes FK violation when Auth user was created but users table row wasn't.
+  Future<void> _ensureUserExists() async {
+    final existing = await _client
+        .from(ApiConstants.usersTable)
+        .select('id')
+        .eq('id', _userId)
+        .maybeSingle();
+
+    if (existing == null) {
+      final authUser = _client.auth.currentUser;
+      await _client.from(ApiConstants.usersTable).upsert({
+        'id': _userId,
+        'email': authUser?.email ?? '',
+        'full_name': authUser?.userMetadata?['full_name'] ?? '',
+      });
+    }
   }
 
   Future<Habit> updateHabit(String id, Map<String, dynamic> updates) async {
