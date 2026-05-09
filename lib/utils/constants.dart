@@ -1,7 +1,7 @@
 class ApiConstants {
   // Supabase
-  static const String supabaseUrl = 'SUA_SUPABASE_URL';
-  static const String supabaseAnonKey = 'SUA_SUPABASE_ANON_KEY';
+  static const String supabaseUrl = 'https://mvrcjazxjkjvirnbgiwt.supabase.co';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmNqYXp4amtqdmlybmJnaXd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNzI0MTUsImV4cCI6MjA5Mzg0ODQxNX0.07Qnm1RQh5f4qs1liAM0Yi_1rnIXHI3C_tWX-GBuMzE';
 
   // Tabelas
   static const String usersTable = 'users';
