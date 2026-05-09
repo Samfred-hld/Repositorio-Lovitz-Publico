@@ -254,7 +254,10 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         const SizedBox(height: 16),
-        _buildMaslowPyramid(),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildMaslowPyramid(),
+        ),
       ],
     );
   }
@@ -317,20 +320,24 @@ class _HomeScreenState extends State<HomeScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text(
-                          level.label,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.80),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            level.label,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.80),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Text(
                           level.percentage,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
