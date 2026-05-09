@@ -36,15 +36,31 @@ class ProgressScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const _HabitListItem(
-                title: 'Meditar',
+                title: 'Beber 2L de água',
                 category: 'Fisiológico',
-                icon: Icons.self_improvement,
+                icon: Icons.water_drop,
                 color: AppColors.maslowFisiologico,
                 isCompleted: true,
               ),
               const SizedBox(height: 12),
               const _HabitListItem(
-                title: 'Ler 10 páginas',
+                title: 'Dormir 8h',
+                category: 'Fisiológico',
+                icon: Icons.bedtime,
+                color: AppColors.maslowFisiologico,
+                isCompleted: true,
+              ),
+              const SizedBox(height: 12),
+              const _HabitListItem(
+                title: 'Fazer atividade física',
+                category: 'Segurança',
+                icon: Icons.fitness_center,
+                color: AppColors.maslowSeguranca,
+                isCompleted: false,
+              ),
+              const SizedBox(height: 12),
+              const _HabitListItem(
+                title: 'Ler um livro',
                 category: 'Estima',
                 icon: Icons.menu_book,
                 color: AppColors.maslowEstima,
@@ -192,15 +208,26 @@ class _LevelBarChart extends StatelessWidget {
     );
   }
 
-  BarChartGroupData _buildBarGroup(int x, double y, Color color) {
+  BarChartGroupData _buildBarGroup(int x, double y, Color barColor) {
     return BarChartGroupData(
       x: x,
       barRods: [
         BarChartRodData(
           toY: y,
-          color: color,
-          width: 16,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          color: barColor,
+          width: 22,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+          backDrawRodData: BackgroundBarChartRodData(
+            show: true,
+            toY: 100,
+            color: Colors.white.withOpacity(0.04),
+          ),
+          rodStackItems: [
+            BarChartRodStackItem(
+              y * 0.85, y,
+              barColor.withOpacity(0.50), // topo mais claro = glow
+            ),
+          ],
         ),
       ],
     );
@@ -225,10 +252,10 @@ class _WeeklySummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildStat('12', 'Sequência', AppColors.accentOrange),
-              _buildStat('7/9', 'Hábitos', AppColors.primary),
-              _buildStat('78%', 'Taxa', AppColors.accentSuccess),
-              _buildStat('20', 'Pontos', AppColors.accentXP),
+              _buildStat('12', 'Sequência\natual', const Color(0xFFA78BFA)),
+              _buildStat('7/9', 'Hábitos\nconcluídos', const Color(0xFFA78BFA)),
+              _buildStat('78%', 'Taxa de\nsucesso', const Color(0xFF30C8C8)),
+              _buildStat('20', 'Pontos\ntotais', const Color(0xFFFF8C42)),
             ],
           ),
         ],
@@ -237,25 +264,29 @@ class _WeeklySummaryCard extends StatelessWidget {
   }
 
   Widget _buildStat(String value, String label, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color,
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
+          const SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              height: 1.2,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

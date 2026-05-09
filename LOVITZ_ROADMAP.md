@@ -1,282 +1,309 @@
-# Lovitz — Roadmap Visual (Esqueleto do App)
+# Lovitz — Validação Visual: App Atual vs. Mockups
 
-> Análise baseada no código atual (`lib/`) comparado com os mockups **Ref1**, **Ref2** e **Ref3**.  
-> Foco: estrutura sólida antes de implementações de negócio.
-
----
-
-## Diagnóstico: Estado Atual vs. Mockups
-
-| Componente | Estado Atual | Meta (Mockup) |
-|---|---|---|
-| `main.dart` | Aponta direto para `HomeScreen`, tema com cores erradas (`0xFF120808`) | Usar `MainShell`, tema `AppColors.background` |
-| `MainShell` | Existe mas está vazio (só exibe `Text('Shell')`) | Shell funcional com 4 abas |
-| `HomeScreen` | Header ✅ · Cards resumo ✅ · Pirâmide ✅ (estrutura ok) | Navegação para `MaslowDetailScreen` ao tocar na pirâmide |
-| `ProgressScreen` | Grid de stats + lista de conquistas (layout diferente do mockup) | Tabs Hoje/Semana/Mês/Ano + gráfico de barras + lista de hábitos |
-| `MaslowDetailScreen` | **Não existe** | Tela nova completa (Ref2) |
-| `HabitsScreen` | **Não existe** | Placeholder com estrutura (aparece no bottom nav) |
-| `ProfileScreen` | **Não existe** | Placeholder com estrutura |
-| `bottom_nav_bar.dart` | ✅ Implementado e estilizado | Sem alterações |
-| `app_theme.dart` | ✅ Cores e estilos corretos | Adicionar `AppTextStyles` faltantes se necessário |
-| `pubspec.yaml` | Sem pacote de gráficos | Adicionar `fl_chart` para o bar chart da Ref3 |
+> Comparação direta entre os screenshots do último commit e os mockups Ref1 e Ref3.  
+> Cada item indica o **status**, o **problema exato** e o **código de correção** para o Claude Code.
 
 ---
 
-## Etapa 1 — Corrigir a Arquitetura Shell
+## 🏠 Home Screen — Ref1 vs. Screenshot Atual
 
-**Problema:** `main.dart` bypassa o `MainShell` e vai direto pra `HomeScreen`. O bottom nav existe na Home, mas não navega entre telas — cada tap em "Progresso" ou "Perfil" não faz nada.
+### ✅ O que foi atingido
+- Título "Habit Tracker" com gradiente roxo
+- Cards de resumo com layout 2 colunas, valores e ícones corretos
+- Pirâmide com 5 níveis coloridos e ícones centrais
+- Labels e percentuais à direita de cada nível
+- Bottom nav com 4 abas e indicador de ativo
 
-### 1.1 · `main.dart`
-- Trocar `home: const HomeScreen()` por `home: const MainShell()`
-- Corrigir `scaffoldBackgroundColor` para `AppColors.background` (`0xFF0D0D1A`)
-- Corrigir `colorScheme.primary` para `AppColors.primary` (`0xFF8B70E8`)
+---
 
+### ❌ Gap 1 — Pirâmide: Título fora do card container
+
+**Mockup:** "Pirâmide de Maslow" + subtítulo ficam **fora** do card `surface`, no fundo `background`. O card começa apenas na borda da pirâmide.  
+**Atual:** Título e pirâmide estão dentro do mesmo `Container` com fundo `AppColors.surface`.
+
+**Correção em `home_screen.dart`:**
 ```dart
-// ANTES
-home: const HomeScreen(),
-scaffoldBackgroundColor: const Color(0xFF120808),
-
-// DEPOIS
-home: const MainShell(),
-scaffoldBackgroundColor: AppColors.background,
-```
-
-### 1.2 · `main_shell.dart`
-Implementar o shell com `IndexedStack` para preservar estado das abas:
-
-```dart
-class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
-
-  final _screens = const [
-    HomeScreen(),
-    HabitsScreen(),
-    ProgressScreen(),
-    ProfileScreen(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: AppBottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+// REMOVER o Container externo e expor o título diretamente na Column:
+Column(
+  children: [
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Pirâmide de Maslow', style: AppTextStyles.heading2),
+          const SizedBox(height: 4),
+          Text('Acompanhe seu progresso em cada nível.', style: AppTextStyles.bodyMedium),
+        ],
       ),
-    );
-  }
-}
-```
-
-### 1.3 · `home_screen.dart`
-- Remover o `bottomNavigationBar` do `Scaffold` interno (agora é responsabilidade do `MainShell`)
-- Manter o `AnimationController` e o `SingleChildScrollView`
-
----
-
-## Etapa 2 — Criar Telas Placeholder
-
-Criar arquivos com estrutura mínima para o shell não quebrar na compilação.
-
-### 2.1 · `lib/screens/habits_screen.dart` *(novo)*
-
-```dart
-import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-
-class HabitsScreen extends StatelessWidget {
-  const HabitsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              Text('Hábitos', style: AppTextStyles.heading1),
-              // TODO: lista de hábitos
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-```
-
-### 2.2 · `lib/screens/profile_screen.dart` *(novo)*
-
-Mesma estrutura de placeholder com título "Perfil".
-
----
-
-## Etapa 3 — Criar `MaslowDetailScreen` (Ref2)
-
-Esta é a tela mais complexa ausente. É acessada ao tocar em qualquer nível da pirâmide na `HomeScreen`.
-
-**Estrutura visual (Ref2):**
-```
-AppBar: [← Pirâmide de Maslow] [···]
-TabBar: [Visão geral] [Detalhes]
-──────────────────────────────────
-Card expandido (nível ativo):
-  ┌─ ícone · Nome do Nível · 0%
-  │  Descrição curta
-  │  [====== barra de progresso ======]
-  │  0/2 hábitos concluídos
-  │
-  │  Hábitos neste nível:    0/2
-  │  ┌── ícone · Meditar         ○ ──┐
-  │  │   10 min por dia              │
-  │  └───────────────────────────────┘
-  │  ┌── ícone · Escrever diário  ○ ──┐
-  │  │   Refletir sobre o dia        │
-  │  └───────────────────────────────┘
-└─────────────────────────────────────
-
-Cards colapsados (outros níveis):
-  ┌── ícone · Estima          0%  > ──┐
-  │   [==== barra de progresso ====]  │
-  └───────────────────────────────────┘
-  (repete para Pertencimento, Segurança, Fisiológico)
-```
-
-### Arquivo: `lib/screens/maslow_detail_screen.dart` *(novo)*
-
-**Parâmetro de entrada:** `MaslowLevel level` (o nível clicado na pirâmide).
-
-**Widgets necessários:**
-- `DefaultTabController` com 2 tabs
-- `SliverAppBar` ou `AppBar` simples com `leading: BackButton`
-- `TabBar` estilizado (underline roxo, fundo transparente)
-- `_ExpandedLevelCard` — card do nível ativo com lista de hábitos e checkboxes
-- `_CollapsedLevelCard` — card dos outros níveis com `LinearProgressIndicator` e seta `>`
-
-**Navegar até ela a partir da `HomeScreen`:**
-
-```dart
-// Em _buildMaslowPyramid(), envolver os ícones com GestureDetector:
-GestureDetector(
-  onTap: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => MaslowDetailScreen(level: level),
     ),
-  ),
-  child: /* container do ícone */,
+    const SizedBox(height: 16),
+    // A pirâmide sem Container wrapping extra
+    _buildMaslowPyramid(),
+  ],
 )
 ```
 
 ---
 
-## Etapa 4 — Reescrever `ProgressScreen` (Ref3)
+### ❌ Gap 2 — Pirâmide: Ausência de separação (gap) entre camadas
 
-A tela atual (`GridView` + lista de conquistas) não corresponde ao mockup. Reescrever completo.
+**Mockup:** Cada trapézio tem ~4–6px de espaço vazio entre ele e o próximo, criando efeito de "camadas empilhadas".  
+**Atual:** As camadas são desenhadas uma encostada na outra, sem separação, virando um bloco sólido.
 
-**Estrutura visual (Ref3):**
-```
-TabBar: [Hoje] [Semana] [Mês] [Ano]  [≡]
-──────────────────────────────────────
-Título: Seu progresso
-Subtítulo: Visão geral do seu desenvolvimento
+**Correção em `maslow_pyramid_painter.dart`:**
+```dart
+// Adicionar gap entre níveis no painter:
+const double levelGap = 5.0;
+final adjustedLevelHeight = (totalHeight - (levelGap * (levelCount - 1))) / levelCount;
 
-Card: Progresso por nível         [Semana ▾]
-  Gráfico de barras verticais
-  (5 barras, uma por nível Maslow, com ícones no eixo X)
+// Para cada nível, calcular y com o gap:
+final y = i * (adjustedLevelHeight + levelGap);
 
-Card: Resumo da semana
-  [12 Sequência] [7/9 Hábitos] [78% Taxa] [20 Pontos]
-
-Seção: Hábitos de Hoje            Ver todos >
-  Lista de habit cards com:
-  - borda esquerda colorida (cor do nível Maslow)
-  - ícone · nome · categoria
-  - checkbox (preenchido se concluído)
-```
-
-### Dependência nova — adicionar ao `pubspec.yaml`:
-```yaml
-dependencies:
-  fl_chart: ^0.68.0
-```
-
-### Widgets necessários em `progress_screen.dart`:
-- `_PeriodTabBar` — tabs Hoje/Semana/Mês/Ano com underline roxo
-- `_LevelBarChart` — usa `BarChart` do `fl_chart` com as 5 cores Maslow
-- `_WeeklySummaryCard` — 4 stats em linha (número grande + label)
-- `_HabitListItem` — card com borda esquerda colorida + checkbox
-
----
-
-## Etapa 5 — Polimento da `HomeScreen` (Ref1)
-
-A estrutura já está boa. Ajustes pontuais:
-
-| Item | Problema atual | Correção |
-|---|---|---|
-| Ordem do header | Avatar aparece após sino no código | Inverter: avatar → sino (como na Ref1) |
-| Pirâmide — ícones | Ícones centralizados no eixo X da pirâmide, mas deslocados verticalmente | Ajustar `yCenter` para alinhar com centro visual de cada fatia |
-| Pirâmide — toque | Sem interação | Adicionar `GestureDetector` nos ícones → navega para `MaslowDetailScreen` |
-| Padding inferior | `SizedBox(height: 100)` fixo | Usar `MediaQuery.of(context).padding.bottom + 80` |
-
----
-
-## Sequência de Execução Recomendada
-
-```
-[1] Corrigir main.dart + implementar MainShell        → App navega entre abas
-[2] Criar HabitsScreen + ProfileScreen (placeholder)  → Shell não quebra
-[3] Criar MaslowDetailScreen                          → Fluxo principal completo
-[4] Reescrever ProgressScreen + adicionar fl_chart    → Tela de progresso fiel ao mockup
-[5] Polimento HomeScreen (ordem header, toque pirâmide) → Visual fiel à Ref1
+// Usar adjustedLevelHeight no lugar de levelHeight em todo o painter
 ```
 
 ---
 
-## Estrutura de Arquivos Final Esperada
+### ❌ Gap 3 — Pirâmide: Ausência de efeito neon/glow nas camadas
 
-```
-lib/
-├── main.dart                          ✏️  corrigir
-├── main_shell.dart                    ✏️  implementar
-├── models/
-│   ├── achievement.dart               ✅
-│   ├── habit.dart                     ✅
-│   ├── habit_record.dart              ✅
-│   └── user.dart                      ✅
-├── screens/
-│   ├── home_screen.dart               ✏️  ajustes pontuais
-│   ├── habits_screen.dart             🆕  criar (placeholder)
-│   ├── progress_screen.dart           ✏️  reescrever completo
-│   ├── maslow_detail_screen.dart      🆕  criar (tela completa)
-│   └── profile_screen.dart            🆕  criar (placeholder)
-├── services/
-│   └── api_service.dart               ✅
-├── theme/
-│   └── app_theme.dart                 ✅
-├── utils/
-│   └── constants.dart                 ✅
-└── widgets/
-    ├── bottom_nav_bar.dart            ✅
-    ├── habit_card.dart                ✅
-    ├── legend_card.dart               ✅
-    ├── maslow_pyramid_painter.dart    ✅
-    └── progress_ring.dart             ✅
-```
+**Mockup:** Cada camada tem um brilho intenso nas **bordas laterais e superior**, como se a cor emitisse luz. Efeito tipo "neon glow" — fica claro principalmente nos níveis verde (Segurança) e vermelho (Fisiológico).  
+**Atual:** Camadas são flat, sem nenhum glow. Só há `drawShadow` com preto, que não reproduz o efeito.
 
-**Legenda:** ✅ ok · ✏️ editar · 🆕 criar
+**Correção em `maslow_pyramid_painter.dart` — substituir o shadow atual:**
+```dart
+// REMOVER:
+canvas.drawShadow(path, Colors.black, 8.0, true);
+
+// ADICIONAR glow colorido ANTES do fillPaint:
+final glowPaint = Paint()
+  ..color = level.color.withOpacity(0.55)
+  ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0)
+  ..style = PaintingStyle.stroke
+  ..strokeWidth = 6.0;
+canvas.drawPath(path, glowPaint);
+
+// Segundo passe de glow mais suave (halo externo):
+final outerGlowPaint = Paint()
+  ..color = level.color.withOpacity(0.25)
+  ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18.0)
+  ..style = PaintingStyle.stroke
+  ..strokeWidth = 12.0;
+canvas.drawPath(path, outerGlowPaint);
+```
 
 ---
 
-## Notas para o Antigravity
+### ❌ Gap 4 — Pirâmide: Gradiente das camadas muito apagado
 
-- Ao criar `MaslowDetailScreen`, reutilizar `MaslowLevel` do `maslow_pyramid_painter.dart` — não duplicar o modelo.
-- `fl_chart` já resolve o bar chart da Ref3; não usar `percent_indicator` para isso (serve melhor para progress bars lineares nos cards colapsados da Ref2).
-- O `IndexedStack` no shell garante que o estado de cada aba é preservado ao trocar de tab — preferível ao `PageView` para este caso.
-- Todos os novos `Scaffold` devem usar `backgroundColor: AppColors.background` — não depender do tema global para isso.
+**Mockup:** O gradiente de cada camada vai de uma cor **viva e saturada** no topo/lateral para uma levemente mais escura na base. Cores têm alta luminosidade.  
+**Atual:** O gradient usa `level.color.withOpacity(0.5)` como stop final, o que escurece e dessatura demais — ficando opaco e sem vida.
+
+**Correção em `maslow_pyramid_painter.dart`:**
+```dart
+// SUBSTITUIR o gradient:
+final gradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    _lighten(level.color, 0.15),  // tom mais claro na borda iluminada
+    level.color,                   // cor base
+    _darken(level.color, 0.12),   // leve escurecimento na sombra
+  ],
+  stops: const [0.0, 0.5, 1.0],
+);
+
+// Helpers a adicionar na classe:
+Color _lighten(Color c, double amount) {
+  final hsl = HSLColor.fromColor(c);
+  return hsl.withLightness((hsl.lightness + amount).clamp(0.0, 1.0)).toColor();
+}
+Color _darken(Color c, double amount) {
+  final hsl = HSLColor.fromColor(c);
+  return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
+}
+```
+
+---
+
+### ❌ Gap 5 — Pirâmide: Ícones sem fundo colorido vibrante
+
+**Mockup:** Cada ícone está num container **quadrado arredondado** com fundo colorido (da mesma cor do nível, em tom vibrante claro — não transparente branco). Os ícones parecem "selos" coloridos.  
+**Atual:** Container com `Colors.white.withOpacity(0.12)` — fundo quase invisível, ícone flutua sem destaque.
+
+**Correção em `home_screen.dart`, bloco dos ícones:**
+```dart
+// SUBSTITUIR o container dos ícones:
+Container(
+  width: 36,
+  height: 36,
+  decoration: BoxDecoration(
+    color: level.color.withOpacity(0.30),   // fundo colorido visível
+    borderRadius: BorderRadius.circular(10),
+    border: Border.all(
+      color: level.color.withOpacity(0.60), // borda na cor do nível
+      width: 1.0,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: level.color.withOpacity(0.40),
+        blurRadius: 8,
+        spreadRadius: 1,
+      ),
+    ],
+  ),
+  child: Icon(level.icon, color: Colors.white, size: 20),
+)
+```
+
+---
+
+### ❌ Gap 6 — Pirâmide: Labels sem painel semi-transparente
+
+**Mockup:** As labels do lado direito (`Autorrealização 0%`, etc.) estão sobre um **painel escuro semi-transparente** com leve transparência, claramente distinto do fundo. Há hierarquia visual entre o label e o fundo.  
+**Atual:** Container com `Colors.white.withOpacity(0.04)` — praticamente invisível, labels parecem flutuar no vazio.
+
+**Correção em `home_screen.dart`:**
+```dart
+// SUBSTITUIR o container das labels:
+decoration: BoxDecoration(
+  color: const Color(0xFF1A1A30).withOpacity(0.75), // painel escuro visível
+  borderRadius: BorderRadius.circular(10),
+  border: Border.all(
+    color: Colors.white.withOpacity(0.07),
+    width: 1,
+  ),
+),
+```
+
+---
+
+### ❌ Gap 7 — Cards de Resumo: Fundo com contraste insuficiente
+
+**Mockup:** Os cards têm fundo `~#1C1C3A` — visivelmente mais claro que o fundo da página, com bordas arredondadas bem definidas.  
+**Atual:** `AppColors.surface` (`#151528`) está muito próximo de `AppColors.background` (`#0D0D1A`), perdendo o contraste.
+
+**Correção em `app_theme.dart`:**
+```dart
+// Aumentar levemente o surface para ter mais contraste:
+static const Color surface = Color(0xFF1E1E38); // era 0xFF151528
+```
+
+---
+
+## 📊 Progress Screen — Ref3 vs. Screenshot Atual
+
+### ✅ O que foi atingido
+- Tab bar Hoje/Semana/Mês/Ano com underline roxo funcional
+- Gráfico de barras verticais com ícones no eixo X
+- Card "Resumo da semana" com 4 métricas
+- Lista "Hábitos de Hoje" com borda colorida esquerda e checkboxes
+- Bottom nav com "Progresso" destacado
+
+---
+
+### ❌ Gap 8 — Gráfico: Barras sem glow/neon
+
+**Mockup:** Cada barra tem um brilho suave na parte superior e nas bordas — efeito neon igual ao da pirâmide.  
+**Atual:** Barras flat, sem nenhum efeito de brilho.
+
+**Correção no widget `BarChart` (fl_chart):**
+```dart
+BarChartRodData(
+  toY: value,
+  color: barColor,
+  width: 22,
+  borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+  backDrawRodData: BackgroundBarChartRodData(
+    show: true,
+    toY: 100,
+    color: Colors.white.withOpacity(0.04),
+  ),
+  // Adicionar rodStackItems para o efeito de glow:
+  rodStackItems: [
+    BarChartRodStackItem(
+      value * 0.85, value,
+      barColor.withOpacity(0.50), // topo mais claro = glow
+    ),
+  ],
+),
+```
+
+---
+
+### ❌ Gap 9 — Resumo da semana: Cores dos números inconsistentes
+
+**Mockup:** Os 4 números têm cores vibrantes e **distintas** — criando ritmo visual (roxo · roxo · roxo · laranja ou similar).  
+**Atual:** Mix de laranja, cinza e verde sem padrão coeso.
+
+**Correção — padronizar cores no widget de resumo:**
+```dart
+// Usar as cores Maslow primárias de forma consistente:
+const summaryColors = [
+  Color(0xFFA78BFA),  // roxo — Sequência
+  Color(0xFFA78BFA),  // roxo — Hábitos
+  Color(0xFF30C8C8),  // teal — Taxa
+  Color(0xFFFF8C42),  // laranja — Pontos
+];
+```
+
+---
+
+### ❌ Gap 10 — Resumo da semana: Labels cortados
+
+**Mockup:** Labels descritivos completos: "Sequência atual", "Hábitos concluídos", "Taxa de sucesso", "Pontos totais".  
+**Atual:** Labels truncados: "Sequência", "Hábitos", "Taxa", "Pontos".
+
+**Correção:** Restaurar os textos completos no widget de resumo.
+
+---
+
+### ❌ Gap 11 — Hábitos de Hoje: Poucos itens exibidos
+
+**Mockup:** 4 hábitos na lista (Beber 2L, Dormir 8h, Fazer atividade física, Ler um livro).  
+**Atual:** Apenas 2 hábitos.
+
+Isso pode ser dado mockado — verificar se a lista de hábitos de exemplo está incompleta no código.
+
+---
+
+## 📋 Resumo por Prioridade
+
+| # | Gap | Impacto Visual | Arquivo |
+|---|-----|---------------|---------|
+| 3 | Glow/neon nas camadas da pirâmide | 🔴 Alto | `maslow_pyramid_painter.dart` |
+| 2 | Gap de separação entre camadas | 🔴 Alto | `maslow_pyramid_painter.dart` |
+| 4 | Gradiente apagado nas camadas | 🔴 Alto | `maslow_pyramid_painter.dart` |
+| 1 | Título da pirâmide fora do card | 🟠 Médio | `home_screen.dart` |
+| 5 | Ícones sem fundo colorido vibrante | 🟠 Médio | `home_screen.dart` |
+| 6 | Labels sem painel semi-transparente | 🟠 Médio | `home_screen.dart` |
+| 7 | Cards de resumo com baixo contraste | 🟠 Médio | `app_theme.dart` |
+| 8 | Barras do gráfico sem glow | 🟡 Baixo | `progress_screen.dart` |
+| 9 | Cores do resumo inconsistentes | 🟡 Baixo | `progress_screen.dart` |
+| 10 | Labels do resumo truncados | 🟡 Baixo | `progress_screen.dart` |
+| 11 | Poucos hábitos na lista | 🟡 Baixo | `progress_screen.dart` |
+
+---
+
+## Sequência de Correção Recomendada para o Antigravity
+
+```
+[1] maslow_pyramid_painter.dart
+    → Adicionar gap entre camadas (Gap 2)
+    → Substituir gradiente apagado por gradiente vibrante (Gap 4)
+    → Adicionar MaskFilter.blur para glow neon (Gap 3)
+
+[2] home_screen.dart
+    → Mover título para fora do card container (Gap 1)
+    → Atualizar container dos ícones com fundo colorido (Gap 5)
+    → Atualizar container das labels com painel escuro visível (Gap 6)
+
+[3] app_theme.dart
+    → Aumentar contraste do AppColors.surface (Gap 7)
+
+[4] progress_screen.dart
+    → Corrigir cores dos números do resumo (Gap 9)
+    → Restaurar labels completos (Gap 10)
+    → Adicionar mais hábitos mockados (Gap 11)
+    → Adicionar glow nas barras do fl_chart (Gap 8)
+```

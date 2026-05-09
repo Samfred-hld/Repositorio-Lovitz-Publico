@@ -7,14 +7,25 @@ class MaslowPyramidPainter extends CustomPainter {
 
   MaslowPyramidPainter({required this.levels});
 
+  Color _lighten(Color c, double amount) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withLightness((hsl.lightness + amount).clamp(0.0, 1.0)).toColor();
+  }
+
+  Color _darken(Color c, double amount) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final totalHeight = size.height;
     final totalWidth = size.width;
     final levelCount = levels.length;
 
-    // Cada nível ocupa 1/5 da altura
-    final levelHeight = totalHeight / levelCount;
+    // Cada nível ocupa 1/5 da altura (com gap)
+    const double levelGap = 5.0;
+    final adjustedLevelHeight = (totalHeight - (levelGap * (levelCount - 1))) / levelCount;
 
     // Largura do topo (estreita) e da base (largura total)
     final topWidth = totalWidth * 0.18;
@@ -22,10 +33,9 @@ class MaslowPyramidPainter extends CustomPainter {
 
     for (int i = 0; i < levelCount; i++) {
       final level = levels[i];
-      final y = i * levelHeight;
+      final y = i * (adjustedLevelHeight + levelGap);
 
       // Largura proporcional: topo estreito, base larga
-      final t = i / (levelCount - 1); // 0 no topo, 1 na base
       final currentTopWidth =
           topWidth + (bottomWidth - topWidth) * (i / (levelCount - 1));
       final currentBottomWidth = topWidth +
@@ -38,35 +48,50 @@ class MaslowPyramidPainter extends CustomPainter {
       if (i == 0) {
         // Topo: triângulo
         path.moveTo(centerX, y); // ponta superior
-        path.lineTo(centerX + currentBottomWidth / 2, y + levelHeight);
-        path.lineTo(centerX - currentBottomWidth / 2, y + levelHeight);
+        path.lineTo(centerX + currentBottomWidth / 2, y + adjustedLevelHeight);
+        path.lineTo(centerX - currentBottomWidth / 2, y + adjustedLevelHeight);
         path.close();
       } else {
         // Trapézio
         path.moveTo(centerX - currentTopWidth / 2, y);
         path.lineTo(centerX + currentTopWidth / 2, y);
-        path.lineTo(centerX + currentBottomWidth / 2, y + levelHeight);
-        path.lineTo(centerX - currentBottomWidth / 2, y + levelHeight);
+        path.lineTo(centerX + currentBottomWidth / 2, y + adjustedLevelHeight);
+        path.lineTo(centerX - currentBottomWidth / 2, y + adjustedLevelHeight);
         path.close();
       }
 
       // Preencher com gradiente
-      final rect = Rect.fromLTWH(0, y, totalWidth, levelHeight);
+      final rect = Rect.fromLTWH(0, y, totalWidth, adjustedLevelHeight);
       final gradient = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
         colors: [
+          _lighten(level.color, 0.15),
           level.color,
-          level.color.withOpacity(0.5),
+          _darken(level.color, 0.12),
         ],
+        stops: const [0.0, 0.5, 1.0],
       );
 
       final fillPaint = Paint()
         ..shader = gradient.createShader(rect)
         ..style = PaintingStyle.fill;
 
-      // Sombra para dar efeito 3D (glassmorphism/camadas)
-      canvas.drawShadow(path, Colors.black, 8.0, true);
+      // Glow 1: interno
+      final glowPaint = Paint()
+        ..color = level.color.withOpacity(0.55)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6.0;
+      canvas.drawPath(path, glowPaint);
+
+      // Glow 2: halo externo suave
+      final outerGlowPaint = Paint()
+        ..color = level.color.withOpacity(0.25)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18.0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 12.0;
+      canvas.drawPath(path, outerGlowPaint);
       
       canvas.drawPath(path, fillPaint);
 

@@ -226,42 +226,36 @@ class _HomeScreenState extends State<HomeScreen>
 
   // ─── SEÇÃO PIRÂMIDE DE MASLOW ────────────────────────────────
   Widget _buildMaslowSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: AppColors.surface,
-          border: Border.all(
-            color: AppColors.cardBorder,
-            width: 1,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Pirâmide de Maslow',
+                style: AppTextStyles.heading2.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Acompanhe seu progresso em cada nível.',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontSize: 13,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ],
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Pirâmide de Maslow',
-              style: AppTextStyles.heading2.copyWith(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Acompanhe seu progresso em cada nível.',
-              style: AppTextStyles.bodyMedium.copyWith(
-                fontSize: 13,
-                color: AppColors.textTertiary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildMaslowPyramid(),
-          ],
-        ),
-      ),
+        const SizedBox(height: 16),
+        _buildMaslowPyramid(),
+      ],
     );
   }
 
@@ -282,19 +276,24 @@ class _HomeScreenState extends State<HomeScreen>
               // 1. Barras de progresso/labels (camada inferior)
               ...List.generate(5, (i) {
                 final level = reversedLevels[i];
-                const levelHeight = pyramidHeight / 5;
-                final yPos = i * levelHeight;
+                const double levelGap = 5.0;
+                final adjustedLevelHeight = (pyramidHeight - (levelGap * 4)) / 5;
+                final yPos = i * (adjustedLevelHeight + levelGap);
 
                 return Positioned(
                   left: pyramidWidth / 2, // Começa do centro da pirâmide
                   right: 0,
                   top: yPos + 6, // espaçamento sutil entre as barras
-                  height: levelHeight - 12,
+                  height: adjustedLevelHeight - 12,
                   child: Container(
                     padding: const EdgeInsets.only(right: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFF1A1A30).withOpacity(0.75), // painel escuro visível
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.07),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -309,8 +308,7 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                         const SizedBox(width: 12),
                         SizedBox(
-                          width:
-                              32, // Largura fixa para alinhar as porcentagens
+                          width: 32, // Largura fixa para alinhar as porcentagens
                           child: Text(
                             level.percentage,
                             textAlign: TextAlign.right,
@@ -341,15 +339,14 @@ class _HomeScreenState extends State<HomeScreen>
               // 3. Ícones sobrepostos à pirâmide
               ...List.generate(5, (i) {
                 final level = reversedLevels[i];
-                const levelHeight = pyramidHeight / 5;
-                final yCenter = i * levelHeight +
-                    levelHeight / 2 +
-                    (i == 0 ? levelHeight * 0.15 : levelHeight * 0.05);
+                const double levelGap = 5.0;
+                final adjustedLevelHeight = (pyramidHeight - (levelGap * 4)) / 5;
+                final yCenter = i * (adjustedLevelHeight + levelGap) + adjustedLevelHeight / 2 + (i == 0 ? adjustedLevelHeight * 0.15 : adjustedLevelHeight * 0.05);
                 final xCenter = pyramidWidth / 2;
 
                 return Positioned(
-                  left: xCenter - 16,
-                  top: yCenter - 16,
+                  left: xCenter - 18,
+                  top: yCenter - 18,
                   child: GestureDetector(
                     onTap: () => Navigator.push(
                       context,
@@ -358,16 +355,27 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ),
                     child: Container(
-                      width: 32,
-                      height: 32,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.12),
+                        color: level.color.withOpacity(0.30),   // fundo colorido visível
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: level.color.withOpacity(0.60), // borda na cor do nível
+                          width: 1.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: level.color.withOpacity(0.40),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
                       ),
                       child: Icon(
                         level.icon,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                     ),
                   ),

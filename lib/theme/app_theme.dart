@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppColors {
   // Backgrounds
   static const Color background = Color(0xFF0D0D1A);
-  static const Color surface = Color(0xFF151528);
+  static const Color surface = Color(0xFF1E1E38);
   static const Color surfaceVariant = Color(0xFF1C1C35);
 
   // Cards & Borders
