@@ -49,6 +49,8 @@ class _HomeScreenState extends State<HomeScreen>
     ),
   ];
 
+  static const List<String> _maslowEmojis = ['🔥', '🛡️', '❤️', '⭐', '🌟'];
+
   @override
   void initState() {
     super.initState();
@@ -87,9 +89,12 @@ class _HomeScreenState extends State<HomeScreen>
                 _buildSummaryCards(),
                 const SizedBox(height: 32),
                 _buildMaslowSection(),
+                const SizedBox(height: 24),
+                _buildContinueJourney(),
                 SizedBox(
-                    height: MediaQuery.of(context).padding.bottom +
-                        80), // espaço para o bottom nav
+                  height:
+                      MediaQuery.of(context).padding.bottom + 80,
+                ),
               ],
             ),
           ),
@@ -104,7 +109,6 @@ class _HomeScreenState extends State<HomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          // Título + subtítulo
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,7 +137,6 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
-          // Avatar
           Container(
             width: 42,
             height: 42,
@@ -142,22 +145,15 @@ class _HomeScreenState extends State<HomeScreen>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF6040C0),
-                  Color(0xFF8B70E8),
-                ],
+                colors: [Color(0xFF6040C0), Color(0xFF8B70E8)],
               ),
             ),
             child: const Center(
-              child: Icon(
-                Icons.person_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
+              child:
+                  Icon(Icons.person_rounded, color: Colors.white, size: 22),
             ),
           ),
           const SizedBox(width: 10),
-          // Sino de notificação
           SizedBox(
             width: 42,
             height: 42,
@@ -255,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         const SizedBox(height: 16),
         Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: _buildMaslowPyramid(),
         ),
       ],
@@ -263,27 +259,24 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMaslowPyramid() {
-    final reversedLevels = _maslowLevels.reversed.toList(); // topo → base
-    const pyramidHeight = 320.0;
-    const levelCount = 5;
-    const gap = MaslowPyramidPainter.gap;
-    final levelDrawH = (pyramidHeight - (levelCount - 1) * gap) / levelCount;
+    const pyramidHeight = 340.0;
 
     return SizedBox(
       height: pyramidHeight,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final totalWidth = constraints.maxWidth;
-          // Pirâmide ocupa 65% da largura total
-          final pyramidWidth = totalWidth * 0.65;
+          final pyramidWidth = totalWidth * 0.55;
+          final labelsWidth = totalWidth - pyramidWidth - 16;
 
-          return Stack(
-            clipBehavior: Clip.none,
+          // Levels from top (narrow) to base (wide) for the painter
+          final reversedLevels = _maslowLevels.reversed.toList();
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 1. PIRÂMIDE ──────────────────────────────────────────
-              Positioned(
-                left: 0,
-                top: 0,
+              // ── PIRÂMIDE ──
+              SizedBox(
                 width: pyramidWidth,
                 height: pyramidHeight,
                 child: CustomPaint(
@@ -291,106 +284,150 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
 
-              // ── 2. LABELS — cada uma começa na borda direita do SEU nível ─
-              ...List.generate(levelCount, (i) {
-                final level = reversedLevels[i];
-                final yTop = i * (levelDrawH + gap);
+              const SizedBox(width: 16),
 
-                // Borda direita do nível i na sua posição dentro de pyramidWidth:
-                // right_edge = (pyramidWidth / 2) * (1 + (i + 0.5) / levelCount)
-                // Pequena sobreposição de 6px para ancorar no trapézio
-                final tMid = (i + 0.5) / levelCount;
-                final labelLeft = (pyramidWidth / 2) * (1 + tMid) - 6;
+              // ── LABELS + CÍRCULOS DE PROGRESSO ──
+              SizedBox(
+                width: labelsWidth,
+                height: pyramidHeight,
+                child: Column(
+                  children: List.generate(5, (i) {
+                    // Match pyramid level order (base=0 to top=4 in painter)
+                    final level = _maslowLevels[4 - i];
+                    final emoji = _maslowEmojis[4 - i];
+                    final pctValue =
+                        int.tryParse(level.percentage.replaceAll('%', '')) ?? 0;
 
-                return Positioned(
-                  left: labelLeft,
-                  right: 0,
-                  top: yTop + 5,
-                  height: levelDrawH - 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MaslowDetailScreen(level: level),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(
+                            children: [
+                              // Emoji
+                              Text(emoji, style: const TextStyle(fontSize: 20)),
+                              const SizedBox(width: 8),
+
+                              // Label
+                              Expanded(
+                                child: Text(
+                                  level.label,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.85),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 8),
+
+                              // Circular progress
+                              _ProgressCircle(
+                                percentage: pctValue,
+                                color: level.color,
+                                size: 40,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ─── CONTINUE SUA JORNADA ────────────────────────────────────
+  Widget _buildContinueJourney() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Row(
+          children: [
+            // Large circular progress
+            _ProgressCircle(
+              percentage: 78,
+              color: AppColors.accentSuccess,
+              size: 64,
+              strokeWidth: 6,
+              showLabel: true,
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Continue sua jornada',
+                    style: AppTextStyles.heading3.copyWith(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '7 de 9 hábitos concluídos hoje. Faltam apenas 2!',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textTertiary,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Meta badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF12122A).withOpacity(0.88),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.primary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.07),
-                        width: 1,
+                        color: AppColors.primary.withOpacity(0.3),
                       ),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
-                          child: Text(
-                            level.label,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.80),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                        const Icon(
+                          Icons.emoji_events_rounded,
+                          color: AppColors.primaryLight,
+                          size: 14,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
-                          level.percentage,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          'Meta: 9/9 hábitos',
+                          style: TextStyle(
+                            color: AppColors.primaryLight,
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
                   ),
-                );
-              }),
-
-              // ── 3. ÍCONES — centrados em cada nível da pirâmide ──────
-              ...List.generate(levelCount, (i) {
-                final level = reversedLevels[i];
-                final yTop = i * (levelDrawH + gap);
-                // Centro exato do nível (sem offset arbitrário)
-                final yCenter = yTop + levelDrawH / 2;
-                final xCenter = pyramidWidth / 2;
-
-                return Positioned(
-                  left: xCenter - 18,
-                  top: yCenter - 18,
-                  child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MaslowDetailScreen(level: level),
-                      ),
-                    ),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: level.color.withOpacity(0.35),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: level.color.withOpacity(0.70),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: level.color.withOpacity(0.45),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Icon(level.icon, color: Colors.white, size: 20),
-                    ),
-                  ),
-                );
-              }),
-            ],
-          );
-        },
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -423,10 +460,7 @@ class _SummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: AppColors.surface,
-        border: Border.all(
-          color: AppColors.cardBorder,
-          width: 1,
-        ),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,4 +510,115 @@ class _SummaryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── WIDGET: CÍRCULO DE PROGRESSO ───────────────────────────────
+class _ProgressCircle extends StatelessWidget {
+  final int percentage;
+  final Color color;
+  final double size;
+  final double strokeWidth;
+  final bool showLabel;
+
+  const _ProgressCircle({
+    required this.percentage,
+    required this.color,
+    this.size = 40,
+    this.strokeWidth = 4,
+    this.showLabel = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Glow
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.25),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          // Progress ring
+          CustomPaint(
+            size: Size(size, size),
+            painter: _ProgressCirclePainter(
+              percentage: percentage,
+              color: color,
+              strokeWidth: strokeWidth,
+            ),
+          ),
+          // Label
+          Text(
+            '$percentage%',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: showLabel ? 14 : 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressCirclePainter extends CustomPainter {
+  final int percentage;
+  final Color color;
+  final double strokeWidth;
+
+  _ProgressCirclePainter({
+    required this.percentage,
+    required this.color,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    // Background track
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = Colors.white.withOpacity(0.08)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth,
+    );
+
+    // Progress arc
+    if (percentage > 0) {
+      final sweepAngle = 2 * 3.14159265 * (percentage / 100);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -3.14159265 / 2, // start from top
+        sweepAngle,
+        false,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProgressCirclePainter old) =>
+      old.percentage != percentage || old.color != color;
 }
