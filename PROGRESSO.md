@@ -1,6 +1,6 @@
 # Lovitz — Progresso do Desenvolvimento
 
-**Última atualização:** 2026-05-09 (sessão noturna)
+**Última atualização:** 2026-05-09 (sessão noturna — dashboard + fixes)
 
 ---
 
@@ -108,6 +108,62 @@ App Flutter de rastreamento de hábitos baseado na Pirâmide de Maslow. Migraç�
 - **Cores neon exatas**: `#BF00FF` (purple), `#FF4D4D` (red), `#FFAA00` (orange), `#00F2FF` (cyan), `#007FFF` (blue), `#D946EF` (pink)
 - **Fundo com grid** 40px via `CustomPaint` (`_GridPainter`)
 
+### 9. Dashboard Screen — Dark Neon Cyberpunk 🆕
+- **Arquivo:** `lib/screens/dashboard_screen.dart` (1100+ linhas)
+- **Background:** gradiente deep blue-black (`#050510`→`#0D0B1E`) + grid sutil 40px
+- **Header:**
+  - Título "Habit Tracker" com `ShaderMask` gradiente purple→blue→cyan + glow shadows
+  - Subtitle em cinza claro
+  - Avatar circular com borda neon gradiente (purple/cyan) + indicador online pulsante (AnimatedBuilder)
+  - Ícone de sino com glow ciano + badge vermelho
+- **Cards Glassmorphism (2x):**
+  - `_GlassContainer` com `BackdropFilter` (blur 15), gradient translúcido, borda sutil, glow externo
+  - **Streak:** ícone chama neon laranja + contador animado (AnimatedBuilder) + gradiente laranja/dourado + melhor sequência
+  - **Concluídos:** ícone check neon roxo + contador animado + barra de progresso neon (purple→cyan) com glow
+- **Pirâmide de Maslow 3D:**
+  - `_MaslowPyramidPainter` (CustomPainter) — 5 trapezoides empilhados
+  - Boundary widths compartilhadas: `bottom[i] = top[i+1]` → pirâmide contínua
+  - Base 100% → Topo 30% (taper dramático)
+  - Neon outer glow (MaskFilter.blur), fill gradiente, edge stroke, inner glow, top highlight
+  - Ícones com glow: chama (Fisiológico), escudo (Segurança), pessoas (Pertencimento), medalha (Estima), estrela (Autorrealização)
+  - Connecting lines neon saindo de cada nível
+  - Ordem correta: Autorrealização (topo/roxo) → Fisiológico (base/laranja)
+- **Level Info Cards:**
+  - Conectados à pirâmide via layout Row
+  - AnimatedContainer com slide + fade (staggered por delay)
+  - Ícone com glow, nome, barra de progresso neon animada, %
+- **Bottom Nav Bar:**
+  - Translúcido com BackdropFilter (blur 15)
+  - Aba ativa: Home com cor ciano + glow + linha luminosa acima + dot
+  - Abas inativas: cinza
+- **Animações:**
+  - 6 AnimationControllers: fade, streak, completed, progressBar, pyramid, pulse
+  - Staggered section animations (Interval curves)
+  - Contadores animados nos stats
+  - Pulse no indicador online
+  - Progress bars animadas com glow
+- **Atualização em tempo real:**
+  - `DashboardScreen.refresh()` — callback estático
+  - habits_screen chama ao criar hábito ou voltar de detail
+
+### 10. Fixes de Robustez — API & Database 🆕
+- **`api_service.dart`:**
+  - `getUserStats()` com try/catch por query (não quebra se uma falha)
+  - `maybeSingle()` em vez de `single()` (evita erro se registro não existe)
+  - `getHabits()` retorna `[]` se userId vazio
+  - `createHabit()` lança exceção clara se não autenticado
+  - `_ensureUserExists()` — garante registro na tabela `users` antes de criar hábito (corrige FK violation)
+- **`habit.dart` (model):**
+  - `toJson()` filtra campos `null` — respeita `DEFAULT` do banco
+  - Corrige `PostgrestException: null value in column "weight"`
+- **`create_habit_screen.dart` (refeito):**
+  - Layout corrigido: SingleChildScrollView funciona, conteúdo não corta
+  - Grid 3+2 para seleção de nível (3 em cima, 2 embaixo centralizados)
+  - `_selectedLevel = -1` inicialmente — obriga seleção
+  - AnimatedContainer com borda neon + glow quando selecionado
+  - Validação: nome obrigatório + nível obrigatório
+  - Header compacto, botão salvar com gradient (sem overflow de CustomPaint)
+
 ---
 
 ## ⚠️ Pendente / Em andamento
@@ -123,12 +179,14 @@ App Flutter de rastreamento de hábitos baseado na Pirâmide de Maslow. Migraç�
 ## 📋 Próximos Passos (Roadmap)
 
 ### Prioridade 1 — Estabilizar
-- [ ] Configurar CORS (redirect URL no Supabase)
-- [ ] Testar fluxo completo: cadastro → login → criar hábito → registrar → logout
+- [x] ~~Configurar CORS (redirect URL no Supabase)~~
+- [x] ~~Testar fluxo completo: cadastro → login → criar hábito → registrar → logout~~ ✅ (funcional)
+- [ ] Configurar redirect URLs no painel Supabase
 
 ### Prioridade 2 — Telas faltantes
 - [x] ~~Tela de criação/edição de hábito~~ ✅
 - [x] ~~Tela de detalhes do hábito~~ ✅
+- [x] ~~Dashboard principal~~ ✅
 - [ ] Tela de edição de hábito (reutilizar create com dados preenchidos)
 - [ ] Tela de configurações (notificações, aparência, tema)
 - [ ] Tela de onboarding (primeira vez)
@@ -163,19 +221,20 @@ lovitz-app/
 │   ├── utils/
 │   │   └── constants.dart      # Supabase URL/key, níveis Maslow
 │   ├── models/
-│   │   ├── habit.dart
+│   │   ├── habit.dart          # toJson() filtra nulls
 │   │   ├── habit_record.dart
 │   │   ├── achievement.dart
 │   │   └── user.dart
 │   ├── services/
 │   │   ├── supabase_client.dart  # Inicialização Supabase
 │   │   ├── auth_service.dart     # Login/cadastro/logout
-│   │   └── api_service.dart      # CRUD completo (habits, logs, achievements)
+│   │   └── api_service.dart      # CRUD robusto + _ensureUserExists()
 │   ├── screens/
 │   │   ├── auth_screen.dart      # Login/cadastro
-│   │   ├── home_screen.dart      # Tela principal + pirâmide (dados reais)
-│   │   ├── habits_screen.dart    # Lista de hábitos (Supabase)
-│   │   ├── create_habit_screen.dart  # Criar hábito (CustomPaint neon)
+│   │   ├── dashboard_screen.dart # 🆕 Dashboard neon cyberpunk
+│   │   ├── home_screen.dart      # Tela principal legada
+│   │   ├── habits_screen.dart    # Lista de hábitos + refresh callback
+│   │   ├── create_habit_screen.dart  # Criar hábito (refeito)
 │   │   ├── habit_detail_screen.dart  # Detalhes + calendário + toggle
 │   │   ├── progress_screen.dart  # Progresso
 │   │   ├── profile_screen.dart   # Perfil + stats + logout
@@ -197,12 +256,11 @@ lovitz-app/
 - **Tabelas:** users, habits, habit_logs, achievements, user_achievements
 
 ### Design System
-- **Background:** `#0C0A18` (create), `#0D0D1A` (outras)
+- **Background:** `#050510` (dashboard), `#0C0A18` (create), `#0D0D1A` (outras)
 - **Surface:** `#1E1E38` / `#1A162B` (card)
 - **Primary:** `#8B70E8` (roxo)
-- **Neon:** `#BF00FF` (purple), `#D946EF` (pink), `#FF4D4D` (red), `#FFAA00` (orange), `#00F2FF` (cyan), `#007FFF` (blue)
-- **Accent:** `#E040FB` (rosa), `#FF8C42` (laranja), `#6FCF97` (verde)
-- **Maslow:** `#E8C840` (fisiológico), `#E89040` (segurança), `#D45BA0` (pertencimento), `#5B8FD4` (estima), `#8B6CE0` (autorrealização)
+- **Neon:** `#BF00FF` (purple), `#D946EF` (pink), `#FF4D4D` (red), `#FFAA00` (orange), `#00F2FF` (cyan), `#007FFF` (blue), `#39FF14` (green)
+- **Maslow:** `#FFAA00` (fisiológico), `#39FF14` (segurança), `#00F2FF` (pertencimento), `#007FFF` (estima), `#BF00FF` (autorrealização)
 - **Fontes:** AppTextStyles (heading1-3, bodyLarge/Medium/Small, buttonText)
 
 ### Efeitos Neon (CustomPaint)
@@ -210,6 +268,7 @@ lovitz-app/
 - **Inset glow:** `canvas.clipRRect()` + `MaskFilter.blur` com `PaintingStyle.fill`
 - **Halo:** múltiplas camadas com opacity decrescente
 - **Text glow:** `Shadow` com blur matching a cor do elemento
+- **Glassmorphism:** `BackdropFilter` (blur 15) + gradient translúcido + borda sutil
 
 ---
 
