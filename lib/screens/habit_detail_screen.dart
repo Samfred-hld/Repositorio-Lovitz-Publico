@@ -1,14 +1,133 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/habit.dart';
+import '../models/habit_record.dart';
+import '../services/api_service.dart';
 import '../utils/constants.dart';
 
-class HabitDetailScreen extends StatelessWidget {
+class HabitDetailScreen extends StatefulWidget {
   final Habit habit;
 
   const HabitDetailScreen({super.key, required this.habit});
 
-  // Cor neon por nível Maslow
+  @override
+  State<HabitDetailScreen> createState() => _HabitDetailScreenState();
+}
+
+class _HabitDetailScreenState extends State<HabitDetailScreen> {
+  final _api = ApiService();
+  late Habit _habit;
+  List<HabitRecord> _monthLogs = [];
+  bool _loading = true;
+  bool _loggedToday = false;
+  late DateTime _calendarMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _habit = widget.habit;
+    _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      // Carrega logs do mês atual para o calendário
+      final start = DateTime(_calendarMonth.year, _calendarMonth.month, 1);
+      final end = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 0);
+
+      final logs = await _api.getHabitLogs(
+        habitId: _habit.id,
+        startDate: start,
+        endDate: end,
+      );
+
+      // Recarrega o hábito para ter streak atualizado
+      final habits = await _api.getHabits();
+      final updated = habits.where((h) => h.id == _habit.id).firstOrNull;
+
+      // Verifica se já completou hoje
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      final todayLog = logs.where((l) => l.logDate == today).toList();
+
+      if (mounted) {
+        setState(() {
+          _monthLogs = logs;
+          if (updated != null) _habit = updated;
+          _loggedToday = todayLog.isNotEmpty && todayLog.first.completed;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar dados: $e'),
+            backgroundColor: const Color(0xFFFF4D4D),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleToday() async {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+
+    try {
+      if (_loggedToday) {
+        // Desfaz o registro de hoje
+        final todayLog = _monthLogs.where((l) => l.logDate == today).firstOrNull;
+        if (todayLog?.id != null) {
+          await _api.deleteHabitLog(todayLog!.id!);
+        }
+      } else {
+        // Registra conclusão de hoje
+        final record = HabitRecord(
+          habitId: _habit.id!,
+          logDate: today,
+          completed: true,
+        );
+        await _api.createHabitLog(record);
+      }
+
+      await _loadData(); // recarrega tudo
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: const Color(0xFFFF4D4D),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteHabit() async {
+    try {
+      await _api.deleteHabit(_habit.id!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${_habit.name}" excluído'),
+            backgroundColor: const Color(0xFF6FCF97),
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir: $e'),
+            backgroundColor: const Color(0xFFFF4D4D),
+          ),
+        );
+      }
+    }
+  }
+
   Color _neonColor(int level) {
     switch (level) {
       case 1:
@@ -28,47 +147,44 @@ class HabitDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final neon = _neonColor(habit.maslowLevel);
-    final totalCompletions = 128; // TODO: vir do banco
-    final totalTarget = 365;
-    final streak = habit.streakCurrent;
-    final progress = totalCompletions / totalTarget;
+    final neon = _neonColor(_habit.maslowLevel);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            _buildHeader(context),
-
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    // Card principal do hábito
-                    _buildMainCard(neon, totalCompletions, totalTarget, progress),
-                    const SizedBox(height: 20),
-
-                    // Calendário de conclusão
-                    _buildCalendar(neon),
-                    const SizedBox(height: 20),
-
-                    // Stats grid
-                    _buildStatsGrid(neon, streak, totalCompletions),
-                    const SizedBox(height: 24),
-
-                    // Botões de ação
-                    _buildActionButtons(context, neon),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+        child: _loading
+            ? const Center(
+                child: CircularProgressIndicator(
+                    color: AppColors.primary, strokeWidth: 2))
+            : Column(
+                children: [
+                  _buildHeader(context),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _loadData,
+                      color: neon,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: [
+                            _buildMainCard(neon),
+                            const SizedBox(height: 20),
+                            _buildCalendar(neon),
+                            const SizedBox(height: 20),
+                            _buildStatsGrid(neon),
+                            const SizedBox(height: 16),
+                            _buildLogButton(neon),
+                            const SizedBox(height: 24),
+                            _buildActionButtons(context, neon),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -79,25 +195,20 @@ class HabitDetailScreen extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, true),
             icon: const Icon(Icons.arrow_back_ios_new_rounded,
                 color: AppColors.accentOrange, size: 24),
           ),
           const Spacer(),
-          Text(
-            'Detalhes do Hábito',
-            style: AppTextStyles.heading2.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
-          ),
+          Text('Detalhes do Hábito',
+              style: AppTextStyles.heading2
+                  .copyWith(fontWeight: FontWeight.w600, letterSpacing: 0.5)),
           const Spacer(),
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.accentOrange.withOpacity(0.3),
-              ),
+              border:
+                  Border.all(color: AppColors.accentOrange.withOpacity(0.3)),
             ),
             child: IconButton(
               onPressed: () {},
@@ -110,8 +221,15 @@ class HabitDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMainCard(
-      Color neon, int totalCompletions, int totalTarget, double progress) {
+  Widget _buildMainCard(Color neon) {
+    // Total de conclusões reais (soma de logs completados)
+    final totalCompletions =
+        _monthLogs.where((l) => l.completed).length;
+    // Meta: 365 dias (1 ano) ou pode vir do hábito
+    final totalTarget = 365;
+    final progress =
+        totalTarget > 0 ? (totalCompletions / totalTarget).clamp(0.0, 1.0) : 0.0;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -122,39 +240,23 @@ class HabitDetailScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            habit.name,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
+          Text(_habit.name,
+              style: const TextStyle(
+                  fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white)),
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.local_fire_department_rounded,
-                  color: neon, size: 20),
+              Icon(Icons.local_fire_department_rounded, color: neon, size: 20),
               const SizedBox(width: 8),
-              Text(
-                'Nível: ',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 15,
-                ),
-              ),
-              Text(
-                MaslowLevels.getName(habit.maslowLevel),
-                style: TextStyle(
-                  color: neon,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              Text('Nível: ',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.6), fontSize: 15)),
+              Text(MaslowLevels.getName(_habit.maslowLevel),
+                  style:
+                      TextStyle(color: neon, fontSize: 15, fontWeight: FontWeight.w500)),
             ],
           ),
           const SizedBox(height: 24),
-
           // Barra de progresso
           ClipRRect(
             borderRadius: BorderRadius.circular(100),
@@ -166,19 +268,13 @@ class HabitDetailScreen extends StatelessWidget {
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
-                widthFactor: progress.clamp(0.0, 1.0),
+                widthFactor: progress,
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [neon, neon.withOpacity(0.7)],
-                    ),
+                    gradient: LinearGradient(colors: [neon, neon.withOpacity(0.7)]),
                     borderRadius: BorderRadius.circular(100),
                     boxShadow: [
-                      BoxShadow(
-                        color: neon.withOpacity(0.6),
-                        blurRadius: 12,
-                        spreadRadius: 1,
-                      ),
+                      BoxShadow(color: neon.withOpacity(0.6), blurRadius: 12, spreadRadius: 1),
                     ],
                   ),
                 ),
@@ -186,19 +282,17 @@ class HabitDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            'Total de conclusões: ',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
-              fontSize: 13,
-            ),
-          ),
-          Text(
-            '$totalCompletions/$totalTarget',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+          RichText(
+            text: TextSpan(
+              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+              children: [
+                const TextSpan(text: 'Total de conclusões: '),
+                TextSpan(
+                  text: '$totalCompletions/$totalTarget',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
           ),
         ],
@@ -221,18 +315,29 @@ class HabitDetailScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                onPressed: () {},
-                icon: Icon(Icons.chevron_left_rounded,
-                    color: neon, size: 24),
+                onPressed: () {
+                  setState(() {
+                    _calendarMonth = DateTime(
+                        _calendarMonth.year, _calendarMonth.month - 1);
+                  });
+                  _loadData();
+                },
+                icon: Icon(Icons.chevron_left_rounded, color: neon, size: 24),
               ),
               Text(
-                'Histórico de conclusão',
+                _monthLabel(),
                 style: AppTextStyles.heading3,
               ),
               IconButton(
-                onPressed: () {},
-                icon: Icon(Icons.chevron_right_rounded,
-                    color: neon, size: 24),
+                onPressed: () {
+                  setState(() {
+                    _calendarMonth = DateTime(
+                        _calendarMonth.year, _calendarMonth.month + 1);
+                  });
+                  _loadData();
+                },
+                icon:
+                    Icon(Icons.chevron_right_rounded, color: neon, size: 24),
               ),
             ],
           ),
@@ -243,41 +348,55 @@ class HabitDetailScreen extends StatelessWidget {
             children: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
                 .map((d) => Expanded(
                       child: Center(
-                        child: Text(
-                          d,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.4),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        child: Text(d,
+                            style: TextStyle(
+                                color: Colors.white.withOpacity(0.4),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500)),
                       ),
                     ))
                 .toList(),
           ),
           const SizedBox(height: 16),
-
-          // Grid do calendário (mês de exemplo)
           _buildCalendarGrid(neon),
         ],
       ),
     );
   }
 
-  Widget _buildCalendarGrid(Color neon) {
-    // Exemplo: Maio 2026, começa na sexta (index 4)
-    // Dias completados (simulado)
-    final completedDays = {1, 3, 5, 8, 10, 11, 12, 14, 15, 17, 19, 20, 22};
-    final today = 9; // dia atual
+  String _monthLabel() {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return '${months[_calendarMonth.month - 1]} ${_calendarMonth.year}';
+  }
 
-    final firstDayWeekday = 4; // quinta = index 4 (0=seg)
-    final daysInMonth = 31;
+  Widget _buildCalendarGrid(Color neon) {
+    final completedDays = <int>{};
+    for (final log in _monthLogs) {
+      if (log.completed) {
+        final day = int.tryParse(log.logDate.split('-').last);
+        if (day != null) completedDays.add(day);
+      }
+    }
+
+    final now = DateTime.now();
+    final today = (now.year == _calendarMonth.year &&
+            now.month == _calendarMonth.month)
+        ? now.day
+        : -1;
+
+    final firstDay = DateTime(_calendarMonth.year, _calendarMonth.month, 1);
+    // Monday=0, Sunday=6
+    final firstWeekday = (firstDay.weekday + 6) % 7;
+    final daysInMonth =
+        DateTime(_calendarMonth.year, _calendarMonth.month + 1, 0).day;
 
     List<Widget> rows = [];
     List<Widget> currentRow = [];
 
-    // Espaços vazios antes do dia 1
-    for (int i = 0; i < firstDayWeekday; i++) {
+    for (int i = 0; i < firstWeekday; i++) {
       currentRow.add(const Expanded(child: SizedBox()));
     }
 
@@ -306,7 +425,6 @@ class HabitDetailScreen extends StatelessWidget {
       }
     }
 
-    // Última linha incompleta
     if (currentRow.isNotEmpty) {
       while (currentRow.length < 7) {
         currentRow.add(const Expanded(child: SizedBox()));
@@ -326,27 +444,14 @@ class HabitDetailScreen extends StatelessWidget {
         color: neon.withOpacity(0.25),
         border: Border.all(color: neon, width: 1.5),
         boxShadow: [
-          BoxShadow(
-            color: neon.withOpacity(0.6),
-            blurRadius: 10,
-            spreadRadius: 1,
-          ),
-          BoxShadow(
-            color: neon.withOpacity(0.3),
-            blurRadius: 18,
-            spreadRadius: 2,
-          ),
+          BoxShadow(color: neon.withOpacity(0.6), blurRadius: 10, spreadRadius: 1),
+          BoxShadow(color: neon.withOpacity(0.3), blurRadius: 18, spreadRadius: 2),
         ],
       ),
       child: Center(
-        child: Text(
-          '$day',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: Text('$day',
+            style: const TextStyle(
+                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -360,14 +465,9 @@ class HabitDetailScreen extends StatelessWidget {
         border: Border.all(color: Colors.white.withOpacity(0.4)),
       ),
       child: Center(
-        child: Text(
-          '$day',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        child: Text('$day',
+            style: const TextStyle(
+                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
       ),
     );
   }
@@ -377,23 +477,24 @@ class HabitDetailScreen extends StatelessWidget {
       width: 34,
       height: 34,
       child: Center(
-        child: Text(
-          '$day',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
-            fontSize: 13,
-          ),
-        ),
+        child: Text('$day',
+            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13)),
       ),
     );
   }
 
-  Widget _buildStatsGrid(Color neon, int streak, int totalCompletions) {
+  Widget _buildStatsGrid(Color neon) {
+    final totalLogs = _monthLogs.where((l) => l.completed).length;
+
     return Row(
       children: [
-        Expanded(child: _statCard(neon, Icons.local_fire_department_rounded, 'Sequência atual:', '$streak dias')),
+        Expanded(
+            child: _statCard(neon, Icons.local_fire_department_rounded,
+                'Sequência atual:', '${_habit.streakCurrent} dias')),
         const SizedBox(width: 12),
-        Expanded(child: _statCard(neon, Icons.check_circle_rounded, 'Total de conclusões:', '$totalCompletions')),
+        Expanded(
+            child: _statCard(neon, Icons.check_circle_rounded,
+                'Total de conclusões:', '$totalLogs')),
       ],
     );
   }
@@ -423,22 +524,15 @@ class HabitDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white.withOpacity(0.5),
-                  ),
-                ),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.white.withOpacity(0.5))),
                 const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
               ],
             ),
           ),
@@ -447,10 +541,71 @@ class HabitDetailScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildLogButton(Color neon) {
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: _toggleToday,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(
+              color: _loggedToday
+                  ? const Color(0xFF6FCF97).withOpacity(0.15)
+                  : neon.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _loggedToday
+                    ? const Color(0xFF6FCF97).withOpacity(0.6)
+                    : neon.withOpacity(0.5),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (_loggedToday
+                          ? const Color(0xFF6FCF97)
+                          : neon)
+                      .withOpacity(0.3),
+                  blurRadius: 16,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _loggedToday
+                      ? Icons.check_circle_rounded
+                      : Icons.add_task_rounded,
+                  color: _loggedToday
+                      ? const Color(0xFF6FCF97)
+                      : neon,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  _loggedToday ? 'Concluído hoje ✓' : 'Marcar como concluído',
+                  style: TextStyle(
+                    color: _loggedToday
+                        ? const Color(0xFF6FCF97)
+                        : neon,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButtons(BuildContext context, Color neon) {
     return Column(
       children: [
-        // Editar
         SizedBox(
           width: double.infinity,
           child: Material(
@@ -465,47 +620,30 @@ class HabitDetailScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: neon.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: neon.withOpacity(0.5),
-                    width: 2,
-                  ),
+                  border: Border.all(color: neon.withOpacity(0.5), width: 2),
                   boxShadow: [
-                    BoxShadow(
-                      color: neon.withOpacity(0.15),
-                      blurRadius: 14,
-                    ),
-                    BoxShadow(
-                      color: neon.withOpacity(0.08),
-                      blurRadius: 24,
-                    ),
+                    BoxShadow(color: neon.withOpacity(0.15), blurRadius: 14),
                   ],
                 ),
                 child: Center(
-                  child: Text(
-                    'Editar Hábito',
-                    style: TextStyle(
-                      color: neon,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: Text('Editar Hábito',
+                      style: TextStyle(
+                          color: neon,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600)),
                 ),
               ),
             ),
           ),
         ),
         const SizedBox(height: 16),
-
-        // Excluir
         SizedBox(
           width: double.infinity,
           child: Material(
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
-              onTap: () {
-                _showDeleteDialog(context, neon);
-              },
+              onTap: () => _showDeleteDialog(context, neon),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 decoration: BoxDecoration(
@@ -513,14 +651,11 @@ class HabitDetailScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Center(
-                  child: Text(
-                    'Excluir Hábito',
-                    style: TextStyle(
-                      color: neon.withOpacity(0.7),
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: Text('Excluir Hábito',
+                      style: TextStyle(
+                          color: neon.withOpacity(0.7),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600)),
                 ),
               ),
             ),
@@ -539,10 +674,10 @@ class HabitDetailScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: Colors.white.withOpacity(0.1)),
         ),
-        title: const Text('Excluir Hábito',
-            style: TextStyle(color: Colors.white)),
+        title:
+            const Text('Excluir Hábito', style: TextStyle(color: Colors.white)),
         content: Text(
-          'Tem certeza que deseja excluir "${habit.name}"? Esta ação não pode ser desfeita.',
+          'Tem certeza que deseja excluir "${_habit.name}"? Esta ação não pode ser desfeita.',
           style: TextStyle(color: Colors.white.withOpacity(0.7)),
         ),
         actions: [
@@ -554,8 +689,7 @@ class HabitDetailScreen extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.pop(context);
-              // TODO: excluir do banco
+              _deleteHabit();
             },
             child: const Text('Excluir',
                 style: TextStyle(color: Color(0xFFFF4D4D))),

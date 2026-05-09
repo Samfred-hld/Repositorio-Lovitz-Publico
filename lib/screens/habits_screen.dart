@@ -1,67 +1,57 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/habit.dart';
+import '../services/api_service.dart';
 import '../utils/constants.dart';
 import 'create_habit_screen.dart';
 import 'habit_detail_screen.dart';
 
-class HabitsScreen extends StatelessWidget {
+class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
 
-  // Mock data para demonstração
-  List<Habit> get _mockHabits => [
-        Habit(
-          id: '1',
-          name: 'Beber 2L de água',
-          maslowLevel: 1,
-          habitType: 'quantitative',
-          frequency: 'daily',
-          targetValue: 2,
-          unit: 'L',
-          streakCurrent: 12,
-          streakBest: 21,
-        ),
-        Habit(
-          id: '2',
-          name: 'Dormir 8 horas',
-          maslowLevel: 1,
-          habitType: 'quantitative',
-          frequency: 'daily',
-          targetValue: 8,
-          unit: 'horas',
-          streakCurrent: 5,
-          streakBest: 14,
-        ),
-        Habit(
-          id: '3',
-          name: 'Fazer exercício',
-          maslowLevel: 2,
-          habitType: 'qualitative',
-          frequency: 'daily',
-          streakCurrent: 3,
-          streakBest: 9,
-        ),
-        Habit(
-          id: '4',
-          name: 'Ler um livro',
-          maslowLevel: 5,
-          habitType: 'quantitative',
-          frequency: 'daily',
-          targetValue: 30,
-          unit: 'min',
-          streakCurrent: 7,
-          streakBest: 7,
-        ),
-        Habit(
-          id: '5',
-          name: 'Meditar',
-          maslowLevel: 5,
-          habitType: 'qualitative',
-          frequency: 'daily',
-          streakCurrent: 0,
-          streakBest: 3,
-        ),
-      ];
+  @override
+  State<HabitsScreen> createState() => _HabitsScreenState();
+}
+
+class _HabitsScreenState extends State<HabitsScreen> {
+  final _api = ApiService();
+  List<Habit> _habits = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHabits();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recarrega quando volta de outra tela
+    _loadHabits();
+  }
+
+  Future<void> _loadHabits() async {
+    try {
+      final habits = await _api.getHabits();
+      if (mounted) {
+        setState(() {
+          _habits = habits;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar hábitos: $e'),
+            backgroundColor: const Color(0xFFFF4D4D),
+          ),
+        );
+      }
+    }
+  }
 
   Color _neonColor(int level) {
     switch (level) {
@@ -99,8 +89,6 @@ class HabitsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final habits = _mockHabits;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -114,14 +102,14 @@ class HabitsScreen extends StatelessWidget {
                 children: [
                   Text('Hábitos', style: AppTextStyles.heading1),
                   const Spacer(),
-                  // Botão criar
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      final created = await Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (_) => const CreateHabitScreen()),
                       );
+                      if (created == true) _loadHabits();
                     },
                     child: Container(
                       padding: const EdgeInsets.all(10),
@@ -147,15 +135,28 @@ class HabitsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Lista de hábitos
+            // Conteúdo
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: habits.length,
-                itemBuilder: (context, index) {
-                  return _buildHabitCard(context, habits[index]);
-                },
-              ),
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : _habits.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadHabits,
+                          color: AppColors.primary,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _habits.length,
+                            itemBuilder: (context, index) {
+                              return _buildHabitCard(_habits[index]);
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -163,16 +164,46 @@ class HabitsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHabitCard(BuildContext context, Habit habit) {
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.add_task_rounded,
+              size: 64, color: Colors.white.withOpacity(0.15)),
+          const SizedBox(height: 16),
+          Text(
+            'Nenhum hábito ainda',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.5),
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Toque no + para criar seu primeiro hábito',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.3),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHabitCard(Habit habit) {
     final neon = _neonColor(habit.maslowLevel);
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
               builder: (_) => HabitDetailScreen(habit: habit)),
         );
+        _loadHabits(); // recarrega ao voltar (streak pode ter mudado)
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -184,7 +215,7 @@ class HabitsScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Ícone com glow
+            // Ícone
             Container(
               width: 48,
               height: 48,
@@ -230,7 +261,7 @@ class HabitsScreen extends StatelessWidget {
               ),
             ),
 
-            // Streak
+            // Streak real
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -252,7 +283,7 @@ class HabitsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'dias',
+                  habit.streakCurrent == 1 ? 'dia' : 'dias',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.4),
                     fontSize: 11,

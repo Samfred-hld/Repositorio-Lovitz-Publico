@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../models/habit.dart';
+import '../services/api_service.dart';
 import '../utils/constants.dart';
 
 class CreateHabitScreen extends StatefulWidget {
@@ -11,8 +13,10 @@ class CreateHabitScreen extends StatefulWidget {
 
 class _CreateHabitScreenState extends State<CreateHabitScreen> {
   final _nameController = TextEditingController();
-  int _selectedFrequency = 0; // 0=Diário, 1=Semanal, 2=Personalizado
-  int _selectedMaslowLevel = 1; // 1-5
+  final _api = ApiService();
+  int _selectedFrequency = 0;
+  int _selectedMaslowLevel = 1;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -20,19 +24,18 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
     super.dispose();
   }
 
-  // Cores neon por nível Maslow (matching the HTML reference)
   Color _neonColor(int level) {
     switch (level) {
       case 1:
-        return const Color(0xFFFF4D4D); // vermelho
+        return const Color(0xFFFF4D4D);
       case 2:
-        return const Color(0xFFFFAA00); // laranja
+        return const Color(0xFFFFAA00);
       case 3:
-        return const Color(0xFF00F2FF); // cyan
+        return const Color(0xFF00F2FF);
       case 4:
-        return const Color(0xFF007FFF); // azul
+        return const Color(0xFF007FFF);
       case 5:
-        return const Color(0xFFBF00FF); // roxo
+        return const Color(0xFFBF00FF);
       default:
         return AppColors.primary;
     }
@@ -52,6 +55,66 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
         return Icons.star_rounded;
       default:
         return Icons.circle;
+    }
+  }
+
+  String _frequencyFromIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'daily';
+      case 1:
+        return 'weekly';
+      case 2:
+        return 'monthly';
+      default:
+        return 'daily';
+    }
+  }
+
+  Future<void> _saveHabit() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Digite o nome do hábito'),
+          backgroundColor: Color(0xFFFF4D4D),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    try {
+      final habit = Habit(
+        name: name,
+        maslowLevel: _selectedMaslowLevel,
+        habitType: 'qualitative',
+        frequency: _frequencyFromIndex(_selectedFrequency),
+      );
+
+      await _api.createHabit(habit);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$name" criado com sucesso!'),
+            backgroundColor: const Color(0xFF6FCF97),
+          ),
+        );
+        Navigator.pop(context, true); // retorna true = houve criação
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao criar hábito: $e'),
+            backgroundColor: const Color(0xFFFF4D4D),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -81,7 +144,7 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
                     ),
                   ),
                   const Spacer(),
-                  const SizedBox(width: 48), // balance
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
@@ -100,19 +163,12 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Nome do hábito
                       _buildNameInput(),
                       const SizedBox(height: 32),
-
-                      // Frequência
                       _buildFrequencySection(),
                       const SizedBox(height: 32),
-
-                      // Nível Maslow
                       _buildMaslowSection(),
                       const SizedBox(height: 32),
-
-                      // Botão Salvar
                       _buildSaveButton(),
                     ],
                   ),
@@ -138,18 +194,17 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
           BoxShadow(
             color: AppColors.primary.withOpacity(0.3),
             blurRadius: 12,
-            spreadRadius: 0,
           ),
           BoxShadow(
             color: AppColors.primary.withOpacity(0.15),
             blurRadius: 24,
-            spreadRadius: 0,
           ),
         ],
       ),
       child: TextField(
         controller: _nameController,
         style: const TextStyle(color: Colors.white, fontSize: 16),
+        textCapitalization: TextCapitalization.sentences,
         decoration: InputDecoration(
           hintText: 'Nome do Hábito',
           hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
@@ -206,10 +261,6 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
                                 color: AppColors.primary.withOpacity(0.4),
                                 blurRadius: 12,
                               ),
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.2),
-                                blurRadius: 20,
-                              ),
                             ]
                           : null,
                     ),
@@ -241,8 +292,7 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Nível da Pirâmide de Maslow',
-            style: AppTextStyles.heading2),
+        Text('Nível da Pirâmide de Maslow', style: AppTextStyles.heading2),
         const SizedBox(height: 20),
         Row(
           children: List.generate(5, (i) {
@@ -276,10 +326,6 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
                                   BoxShadow(
                                     color: color.withOpacity(0.6),
                                     blurRadius: 16,
-                                  ),
-                                  BoxShadow(
-                                    color: color.withOpacity(0.3),
-                                    blurRadius: 28,
                                   ),
                                 ]
                               : null,
@@ -320,45 +366,51 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(100),
-          onTap: () {
-            // TODO: salvar hábito
-            Navigator.pop(context);
-          },
+          onTap: _saving ? null : _saveHabit,
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
               color: Colors.transparent,
               borderRadius: BorderRadius.circular(100),
               border: Border.all(
-                color: AppColors.primary.withOpacity(0.8),
+                color: _saving
+                    ? AppColors.primary.withOpacity(0.3)
+                    : AppColors.primary.withOpacity(0.8),
                 width: 2,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.6),
-                  blurRadius: 20,
-                ),
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
-                  blurRadius: 36,
-                ),
-              ],
+              boxShadow: _saving
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.6),
+                        blurRadius: 20,
+                      ),
+                    ],
             ),
             child: Center(
-              child: Text(
-                'Salvar Hábito',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  shadows: [
-                    Shadow(
-                      color: AppColors.primary.withOpacity(0.8),
-                      blurRadius: 10,
+              child: _saving
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : Text(
+                      'Salvar Hábito',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        shadows: [
+                          Shadow(
+                            color: AppColors.primary.withOpacity(0.8),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ),
             ),
           ),
         ),

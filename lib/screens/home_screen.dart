@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/maslow_pyramid_painter.dart';
+import '../services/api_service.dart';
+import '../models/habit.dart';
+import '../utils/constants.dart';
 import 'maslow_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,42 +17,12 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+  final _api = ApiService();
 
-  // Níveis da pirâmide de Maslow (base → topo)
-  static const List<MaslowLevel> _maslowLevels = [
-    MaslowLevel(
-      label: 'Fisiológico',
-      percentage: '33%',
-      icon: Icons.local_fire_department_rounded,
-      color: AppColors.maslowFisiologico,
-    ),
-    MaslowLevel(
-      label: 'Segurança',
-      percentage: '22%',
-      icon: Icons.shield_rounded,
-      color: AppColors.maslowSeguranca,
-    ),
-    MaslowLevel(
-      label: 'Pertencimento',
-      percentage: '11%',
-      icon: Icons.people_rounded,
-      color: AppColors.maslowPertencimento,
-    ),
-    MaslowLevel(
-      label: 'Estima',
-      percentage: '0%',
-      icon: Icons.emoji_emotions_rounded,
-      color: AppColors.maslowEstima,
-    ),
-    MaslowLevel(
-      label: 'Autorrealização',
-      percentage: '0%',
-      icon: Icons.auto_awesome_rounded,
-      color: AppColors.maslowAutorealizacao,
-    ),
-  ];
-
-  static const List<String> _maslowEmojis = ['🔥', '🛡️', '❤️', '⭐', '🌟'];
+  // Dados reais
+  List<Habit> _habits = [];
+  Map<String, dynamic> _stats = {};
+  bool _loading = true;
 
   @override
   void initState() {
@@ -63,12 +36,44 @@ class _HomeScreenState extends State<HomeScreen>
       curve: Curves.easeOutCubic,
     );
     _fadeController.forward();
+    _loadData();
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final habits = await _api.getHabits();
+      final stats = await _api.getUserStats();
+
+      if (mounted) {
+        setState(() {
+          _habits = habits;
+          _stats = stats;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // Calcula % de conclusão por nível Maslow
+  Map<int, Map<String, dynamic>> _maslowProgress() {
+    final result = <int, Map<String, dynamic>>{};
+    for (int level = 1; level <= 5; level++) {
+      final levelHabits = _habits.where((h) => h.maslowLevel == level).toList();
+      final total = levelHabits.length;
+      // Usa streak > 0 como proxy de "em progresso"
+      final withProgress = levelHabits.where((h) => h.streakCurrent > 0).length;
+      final pct = total > 0 ? ((withProgress / total) * 100).round() : 0;
+      result[level] = {'total': total, 'pct': pct};
+    }
+    return result;
   }
 
   @override
@@ -78,24 +83,38 @@ class _HomeScreenState extends State<HomeScreen>
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16),
-                _buildHeader(),
-                const SizedBox(height: 24),
-                _buildSummaryCards(),
-                const SizedBox(height: 32),
-                _buildMaslowSection(),
-                const SizedBox(height: 24),
-                _buildContinueJourney(),
-                SizedBox(
-                  height:
-                      MediaQuery.of(context).padding.bottom + 80,
-                ),
-              ],
+          child: RefreshIndicator(
+            onRefresh: _loadData,
+            color: AppColors.primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics()),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  _loading
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 60),
+                          child: Center(
+                              child: CircularProgressIndicator(
+                                  color: AppColors.primary, strokeWidth: 2)),
+                        )
+                      : Column(
+                          children: [
+                            _buildSummaryCards(),
+                            const SizedBox(height: 32),
+                            _buildMaslowSection(),
+                            const SizedBox(height: 24),
+                            _buildContinueJourney(),
+                          ],
+                        ),
+                  SizedBox(
+                      height: MediaQuery.of(context).padding.bottom + 80),
+                ],
+              ),
             ),
           ),
         ),
@@ -186,10 +205,21 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // ─── CARDS DE RESUMO ──────────────────────────────────────────
+  // ─── CARDS DE RESUMO (dados reais) ────────────────────────────
   Widget _buildSummaryCards() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20),
+    final completedToday = _stats['completed_today'] ?? 0;
+    final totalHabits = _stats['active_habits'] ?? 0;
+    final bestStreak = _habits.fold<int>(
+        0, (max, h) => h.streakBest > max ? h.streakBest : max);
+    final currentStreak = _habits.fold<int>(
+        0, (max, h) => h.streakCurrent > max ? h.streakCurrent : max);
+
+    final pctText = totalHabits > 0
+        ? '${((completedToday / totalHabits) * 100).round()}%'
+        : '0%';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
           Expanded(
@@ -197,22 +227,22 @@ class _HomeScreenState extends State<HomeScreen>
               icon: Icons.local_fire_department_rounded,
               iconColor: AppColors.accentOrange,
               label: 'Sequência atual',
-              value: '12',
+              value: '$currentStreak',
               subtext: 'dias',
-              valueColor: Color(0xFFE040FB),
-              footer: 'Melhor sequência: 28 dias',
+              valueColor: const Color(0xFFE040FB),
+              footer: 'Melhor sequência: $bestStreak dias',
             ),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: _SummaryCard(
               icon: Icons.check_circle_rounded,
               iconColor: AppColors.primary,
               label: 'Hábitos concluídos',
-              value: '7/9',
+              value: '$completedToday/$totalHabits',
               subtext: 'hoje',
               valueColor: AppColors.primary,
-              footer: '78% da sua meta diária',
+              footer: '$pctText da sua meta diária',
             ),
           ),
         ],
@@ -220,8 +250,34 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // ─── SEÇÃO PIRÂMIDE DE MASLOW ────────────────────────────────
+  // ─── SEÇÃO PIRÂMIDE DE MASLOW (dados reais) ──────────────────
   Widget _buildMaslowSection() {
+    final progress = _maslowProgress();
+
+    final levels = [
+      _LevelData('Fisiológico', Icons.local_fire_department_rounded,
+          AppColors.maslowFisiologico, 1),
+      _LevelData('Segurança', Icons.shield_rounded,
+          AppColors.maslowSeguranca, 2),
+      _LevelData('Pertencimento', Icons.people_rounded,
+          AppColors.maslowPertencimento, 3),
+      _LevelData('Estima', Icons.emoji_emotions_rounded,
+          AppColors.maslowEstima, 4),
+      _LevelData('Autorrealização', Icons.auto_awesome_rounded,
+          AppColors.maslowAutorealizacao, 5),
+    ];
+
+    final maslowLevels = levels
+        .map((l) => MaslowLevel(
+              label: l.label,
+              percentage: '${progress[l.level]?['pct'] ?? 0}%',
+              icon: l.icon,
+              color: l.color,
+            ))
+        .toList();
+
+    final emojis = ['🔥', '🛡️', '❤️', '⭐', '🌟'];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,128 +286,130 @@ class _HomeScreenState extends State<HomeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Pirâmide de Maslow',
-                style: AppTextStyles.heading2.copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
+              Text('Pirâmide de Maslow',
+                  style: AppTextStyles.heading2.copyWith(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white)),
               const SizedBox(height: 4),
-              Text(
-                'Acompanhe seu progresso em cada nível.',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  fontSize: 13,
-                  color: AppColors.textTertiary,
-                ),
-              ),
+              Text('Acompanhe seu progresso em cada nível.',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                      fontSize: 13, color: AppColors.textTertiary)),
             ],
           ),
         ),
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: _buildMaslowPyramid(),
+          child: SizedBox(
+            height: 360,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final totalWidth = constraints.maxWidth;
+                final pyramidWidth = totalWidth * 0.60;
+                final labelsWidth = totalWidth - pyramidWidth - 16;
+                final reversedLevels = maslowLevels.reversed.toList();
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: pyramidWidth,
+                      height: 360,
+                      child: CustomPaint(
+                        painter: MaslowPyramidPainter(levels: reversedLevels),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: labelsWidth,
+                      height: 360,
+                      child: Column(
+                        children: List.generate(5, (i) {
+                          final level = maslowLevels[4 - i];
+                          final emoji = emojis[4 - i];
+                          final levelNum = 5 - i;
+                          final pctValue = progress[levelNum]?['pct'] ?? 0;
+                          final total = progress[levelNum]?['total'] ?? 0;
+
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        MaslowDetailScreen(level: level)),
+                              ),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 3),
+                                child: Row(
+                                  children: [
+                                    Text(emoji,
+                                        style: const TextStyle(fontSize: 20)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(level.label,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                  color: Colors.white
+                                                      .withOpacity(0.85),
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w500)),
+                                          Text('$total hábitos',
+                                              style: TextStyle(
+                                                  color: Colors.white
+                                                      .withOpacity(0.35),
+                                                  fontSize: 10)),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _ProgressCircle(
+                                      percentage: pctValue,
+                                      color: level.color,
+                                      size: 40,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildMaslowPyramid() {
-    const pyramidHeight = 360.0;
-
-    return SizedBox(
-      height: pyramidHeight,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final totalWidth = constraints.maxWidth;
-          final pyramidWidth = totalWidth * 0.60;
-          final labelsWidth = totalWidth - pyramidWidth - 16;
-
-          // Levels from top (narrow) to base (wide) for the painter
-          final reversedLevels = _maslowLevels.reversed.toList();
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── PIRÂMIDE ──
-              SizedBox(
-                width: pyramidWidth,
-                height: pyramidHeight,
-                child: CustomPaint(
-                  painter: MaslowPyramidPainter(levels: reversedLevels),
-                ),
-              ),
-
-              const SizedBox(width: 16),
-
-              // ── LABELS + CÍRCULOS DE PROGRESSO ──
-              SizedBox(
-                width: labelsWidth,
-                height: pyramidHeight,
-                child: Column(
-                  children: List.generate(5, (i) {
-                    // Match pyramid level order (base=0 to top=4 in painter)
-                    final level = _maslowLevels[4 - i];
-                    final emoji = _maslowEmojis[4 - i];
-                    final pctValue =
-                        int.tryParse(level.percentage.replaceAll('%', '')) ?? 0;
-
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MaslowDetailScreen(level: level),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Row(
-                            children: [
-                              // Emoji
-                              Text(emoji, style: const TextStyle(fontSize: 20)),
-                              const SizedBox(width: 8),
-
-                              // Label
-                              Expanded(
-                                child: Text(
-                                  level.label,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.85),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(width: 8),
-
-                              // Circular progress
-                              _ProgressCircle(
-                                percentage: pctValue,
-                                color: level.color,
-                                size: 40,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  // ─── CONTINUE SUA JORNADA ────────────────────────────────────
+  // ─── CONTINUE SUA JORNADA (dados reais) ──────────────────────
   Widget _buildContinueJourney() {
+    final completedToday = _stats['completed_today'] ?? 0;
+    final totalHabits = _stats['active_habits'] ?? 0;
+    final remaining = totalHabits - completedToday;
+    final pct = totalHabits > 0
+        ? ((completedToday / totalHabits) * 100).round()
+        : 0;
+
+    final journeyText = totalHabits == 0
+        ? 'Crie seu primeiro hábito para começar!'
+        : remaining <= 0
+            ? 'Parabéns! Todos os hábitos concluídos hoje! 🎉'
+            : '$completedToday de $totalHabits hábitos concluídos hoje. '
+                'Faltam apenas $remaining!';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -363,24 +421,24 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         child: Row(
           children: [
-            // Large circular progress
             SizedBox(
               width: 64,
               height: 64,
               child: CustomPaint(
                 painter: _ProgressCirclePainter(
-                  percentage: 78,
-                  color: AppColors.accentSuccess,
+                  percentage: pct,
+                  color: remaining <= 0
+                      ? const Color(0xFF6FCF97)
+                      : AppColors.accentSuccess,
                   strokeWidth: 6,
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    '78%',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    '$pct%',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -390,21 +448,13 @@ class _HomeScreenState extends State<HomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Continue sua jornada',
-                    style: AppTextStyles.heading3.copyWith(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
-                  ),
+                  Text('Continue sua jornada',
+                      style: AppTextStyles.heading3.copyWith(
+                          color: Colors.white, fontSize: 16)),
                   const SizedBox(height: 6),
-                  Text(
-                    '7 de 9 hábitos concluídos hoje. Faltam apenas 2!',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textTertiary,
-                      fontSize: 13,
-                    ),
-                  ),
+                  Text(journeyText,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textTertiary, fontSize: 13)),
                   const SizedBox(height: 12),
                   Container(
                     padding:
@@ -413,25 +463,22 @@ class _HomeScreenState extends State<HomeScreen>
                       color: AppColors.primary.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: AppColors.primary.withOpacity(0.3),
-                      ),
+                          color: AppColors.primary.withOpacity(0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.emoji_events_rounded,
-                          color: AppColors.primaryLight,
-                          size: 14,
-                        ),
+                        const Icon(Icons.emoji_events_rounded,
+                            color: AppColors.primaryLight, size: 14),
                         const SizedBox(width: 6),
                         Text(
-                          'Meta: 9/9 hábitos',
+                          totalHabits == 0
+                              ? 'Crie um hábito'
+                              : 'Meta: $totalHabits/$totalHabits hábitos',
                           style: TextStyle(
-                            color: AppColors.primaryLight,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+                              color: AppColors.primaryLight,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -446,7 +493,17 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-// ─── WIDGET: CARD DE RESUMO ─────────────────────────────────────
+class _LevelData {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final int level;
+
+  const _LevelData(this.label, this.icon, this.color, this.level);
+}
+
+// ─── WIDGETS ─────────────────────────────────────────────────────
+
 class _SummaryCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -480,63 +537,45 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Icon(icon, color: iconColor, size: 20),
           const SizedBox(height: 12),
-          Text(
-            label,
-            style: AppTextStyles.bodyMedium.copyWith(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          Text(label,
+              style: AppTextStyles.bodyMedium
+                  .copyWith(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w800,
-                  color: valueColor,
-                  letterSpacing: -1,
-                ),
-              ),
+              Text(value,
+                  style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w800,
+                      color: valueColor,
+                      letterSpacing: -1)),
               const SizedBox(width: 4),
-              Text(
-                subtext,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  fontSize: 16,
-                  color: AppColors.textSecondary,
-                ),
-              ),
+              Text(subtext,
+                  style: AppTextStyles.bodyMedium
+                      .copyWith(fontSize: 16, color: AppColors.textSecondary)),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            footer,
-            style: AppTextStyles.bodySmall.copyWith(
-              fontSize: 11,
-              color: AppColors.textTertiary,
-            ),
-          ),
+          Text(footer,
+              style: AppTextStyles.bodySmall
+                  .copyWith(fontSize: 11, color: AppColors.textTertiary)),
         ],
       ),
     );
   }
 }
 
-// ─── WIDGET: CÍRCULO DE PROGRESSO ───────────────────────────────
 class _ProgressCircle extends StatelessWidget {
   final int percentage;
   final Color color;
   final double size;
-  final double strokeWidth;
 
   const _ProgressCircle({
     required this.percentage,
     required this.color,
     this.size = 40,
-    this.strokeWidth = 4,
   });
 
   @override
@@ -548,16 +587,15 @@ class _ProgressCircle extends StatelessWidget {
         painter: _ProgressCirclePainter(
           percentage: percentage,
           color: color,
-          strokeWidth: strokeWidth,
+          strokeWidth: 4,
         ),
         child: Center(
           child: Text(
             '$percentage%',
             style: TextStyle(
-              color: Colors.white,
-              fontSize: size > 30 ? 10 : 9,
-              fontWeight: FontWeight.w700,
-            ),
+                color: Colors.white,
+                fontSize: size > 30 ? 10 : 9,
+                fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -581,7 +619,6 @@ class _ProgressCirclePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width - strokeWidth) / 2;
 
-    // Background track
     canvas.drawCircle(
       center,
       radius,
@@ -591,12 +628,11 @@ class _ProgressCirclePainter extends CustomPainter {
         ..strokeWidth = strokeWidth,
     );
 
-    // Progress arc
     if (percentage > 0) {
       final sweepAngle = 2 * 3.14159265 * (percentage / 100);
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
-        -3.14159265 / 2, // start from top
+        -3.14159265 / 2,
         sweepAngle,
         false,
         Paint()
