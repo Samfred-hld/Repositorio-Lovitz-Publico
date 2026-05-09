@@ -1,3 +1,4 @@
+import 'auth_service.dart';
 import 'supabase_client.dart';
 import '../utils/constants.dart';
 import '../models/habit.dart';
@@ -10,7 +11,7 @@ class ApiService {
   ApiService._internal();
 
   SupabaseClient get _client => SupabaseConfig.client;
-  String get _userId => SupabaseConfig.currentUserId ?? '';
+  String get _userId => AuthService().userId ?? '';
 
   // ==================== HABITS ====================
 

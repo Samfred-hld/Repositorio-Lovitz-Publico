@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'main_shell.dart';
+import 'screens/auth_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/supabase_client.dart';
 
@@ -35,7 +37,27 @@ class LovitzApp extends StatelessWidget {
           surface: Color(0xFF120808),
         ),
       ),
-      home: const MainShell(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+/// Escuta mudanças de autenticação e redireciona automaticamente
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthState>(
+      stream: SupabaseConfig.client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final session = SupabaseConfig.client.auth.currentSession;
+
+        if (session != null) {
+          return const MainShell();
+        }
+        return const AuthScreen();
+      },
     );
   }
 }
