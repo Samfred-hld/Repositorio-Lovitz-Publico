@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_service.dart';
 import 'supabase_client.dart';
 import '../utils/constants.dart';
@@ -10,7 +11,7 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  SupabaseClient get _client => SupabaseConfig.client;
+  final SupabaseClient _client = SupabaseConfig.client;
   String get _userId => AuthService().userId ?? '';
 
   // ==================== HABITS ====================
@@ -131,32 +132,31 @@ class ApiService {
   // ==================== STATS ====================
 
   Future<Map<String, dynamic>> getUserStats() async {
-    // Busca dados em paralelo
-    final results = await Future.wait([
-      _client
-          .from(ApiConstants.usersTable)
-          .select('xp_total, level')
-          .eq('id', _userId)
-          .single(),
-      _client
-          .from(ApiConstants.habitsTable)
-          .select('id')
-          .eq('user_id', _userId)
-          .eq('is_active', true),
-      _client
-          .from(ApiConstants.habitLogsTable)
-          .select('completed, points')
-          .eq('user_id', _userId)
-          .eq('log_date', DateTime.now().toIso8601String().split('T')[0]),
-    ]);
+    final today = DateTime.now().toIso8601String().split('T')[0];
 
-    final user = results[0] as Map<String, dynamic>;
-    final habits = results[1] as List;
-    final todayLogs = results[2] as List;
+    // Busca sequencial (evita problema de tipo no Future.wait)
+    final user = await _client
+        .from(ApiConstants.usersTable)
+        .select('xp_total, level')
+        .eq('id', _userId)
+        .single();
 
-    final completedToday = todayLogs.where((l) => l['completed'] == true).length;
-    final pointsToday =
-        todayLogs.fold<int>(0, (sum, l) => sum + (l['points'] as int? ?? 0));
+    final habits = await _client
+        .from(ApiConstants.habitsTable)
+        .select('id')
+        .eq('user_id', _userId)
+        .eq('is_active', true) as List;
+
+    final todayLogs = await _client
+        .from(ApiConstants.habitLogsTable)
+        .select('completed, points')
+        .eq('user_id', _userId)
+        .eq('log_date', today) as List;
+
+    final completedToday =
+        todayLogs.where((l) => l['completed'] == true).length;
+    final pointsToday = todayLogs.fold<int>(
+        0, (sum, l) => sum + (l['points'] as int? ?? 0));
 
     return {
       'xp_total': user['xp_total'] ?? 0,
