@@ -364,12 +364,26 @@ class _HomeScreenState extends State<HomeScreen>
         child: Row(
           children: [
             // Large circular progress
-            _ProgressCircle(
-              percentage: 78,
-              color: AppColors.accentSuccess,
-              size: 64,
-              strokeWidth: 6,
-              showLabel: true,
+            SizedBox(
+              width: 64,
+              height: 64,
+              child: CustomPaint(
+                painter: _ProgressCirclePainter(
+                  percentage: 78,
+                  color: AppColors.accentSuccess,
+                  strokeWidth: 6,
+                ),
+                child: const Center(
+                  child: Text(
+                    '78%',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(width: 20),
             Expanded(
@@ -392,7 +406,6 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Meta badge
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -518,14 +531,12 @@ class _ProgressCircle extends StatelessWidget {
   final Color color;
   final double size;
   final double strokeWidth;
-  final bool showLabel;
 
   const _ProgressCircle({
     required this.percentage,
     required this.color,
     this.size = 40,
     this.strokeWidth = 4,
-    this.showLabel = false,
   });
 
   @override
@@ -533,43 +544,22 @@ class _ProgressCircle extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Glow
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.25),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          ),
-          // Progress ring
-          CustomPaint(
-            size: Size(size, size),
-            painter: _ProgressCirclePainter(
-              percentage: percentage,
-              color: color,
-              strokeWidth: strokeWidth,
-            ),
-          ),
-          // Label
-          Text(
+      child: CustomPaint(
+        painter: _ProgressCirclePainter(
+          percentage: percentage,
+          color: color,
+          strokeWidth: strokeWidth,
+        ),
+        child: Center(
+          child: Text(
             '$percentage%',
             style: TextStyle(
               color: Colors.white,
-              fontSize: showLabel ? 14 : 10,
+              fontSize: size > 30 ? 10 : 9,
               fontWeight: FontWeight.w700,
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -16,11 +16,11 @@ class AppColors {
   static const Color primaryDark = Color(0xFF6040C0);
 
   // Maslow (do topo à base — cores vibrantes estilo mockup)
-  static const Color maslowAutorealizacao = Color(0xFF9060E0); // Nível 5 — roxo
-  static const Color maslowEstima = Color(0xFF4878D0);          // Nível 4 — azul
-  static const Color maslowPertencimento = Color(0xFFE040FB);   // Nível 3 — rosa
-  static const Color maslowSeguranca = Color(0xFFFF8C42);       // Nível 2 — laranja
-  static const Color maslowFisiologico = Color(0xFFFFD600);     // Nível 1 — amarelo
+  static const Color maslowAutorealizacao = Color(0xFF8B6CE0); // Nível 5 — roxo
+  static const Color maslowEstima = Color(0xFF5B8FD4);          // Nível 4 — azul
+  static const Color maslowPertencimento = Color(0xFFD45BA0);   // Nível 3 — rosa
+  static const Color maslowSeguranca = Color(0xFFE89040);       // Nível 2 — laranja
+  static const Color maslowFisiologico = Color(0xFFE8C840);     // Nível 1 — amarelo
 
   // Texto
   static const Color textPrimary = Color(0xFFFFFFFF);
