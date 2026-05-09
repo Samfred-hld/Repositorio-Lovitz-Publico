@@ -1,6 +1,6 @@
 # Lovitz — Progresso do Desenvolvimento
 
-**Última atualização:** 2026-05-09
+**Última atualização:** 2026-05-09 (sessão noturna)
 
 ---
 
@@ -59,6 +59,55 @@ App Flutter de rastreamento de hábitos baseado na Pirâmide de Maslow. Migraç�
   - `lib/screens/home_screen.dart` — layout pirâmide + labels + círculos + seção jornada
   - `lib/theme/app_theme.dart` — cores Maslow atualizadas
 
+### 6. Telas de Hábitos — Criação, Detalhes, Lista
+- **`create_habit_screen.dart`** — Tela "Criar Novo Hábito"
+  - Input com nome do hábito
+  - Seletor de frequência: Diário / Semanal / Personalizado (toggle rounded)
+  - Seletor de nível Maslow com 5 ícones neon (vermelho → laranja → cyan → azul → roxo)
+  - Botão "Salvar Hábito" com glow neon
+  - Tradução fiel do HTML de referência (cores, dimensões, efeitos)
+- **`habit_detail_screen.dart`** — Tela "Detalhes do Hábito"
+  - Card principal com nome, nível Maslow, barra de progresso com glow
+  - Calendário de conclusão com círculos neon nos dias completados
+  - Navegação entre meses com recarga de dados
+  - Grid de stats: streak real + total de conclusões reais
+  - Botão "Marcar como concluído" / "Concluído hoje ✓" (toggle real no banco)
+  - Botões Editar / Excluir com confirmação via dialog
+- **`habits_screen.dart`** — Lista de hábitos atualizada
+  - Carrega hábitos do Supabase via `ApiService.getHabits()`
+  - Cards com ícone neon por nível, nome, streak real
+  - Botão "+" no header para criar novo hábito
+  - Navegação para detalhes ao tocar no card
+  - Pull-to-refresh, estado vazio, loading state
+  - Recarrega ao voltar de create/detail
+
+### 7. Integração Total com Supabase — Dados Reais
+- **HomeScreen** — zero dados fictícios
+  - Cards de resumo: streak real do banco, hábitos concluídos/total de hoje
+  - Pirâmide Maslow: % real calculada por nível (hábitos com streak > 0 / total)
+  - "Continue sua jornada": progresso real, texto dinâmico
+- **CreateHabitScreen** — salva no banco
+  - Validação (nome obrigatório), loading state, feedback visual (SnackBar)
+  - Retorna `true` para recarregar lista ao voltar
+- **HabitDetailScreen** — interação real
+  - Calendário carrega logs reais do mês via `ApiService.getHabitLogs()`
+  - Toggle de conclusão hoje (insert/delete no banco)
+  - Stats reais (streak atualizado via trigger do banco)
+  - Exclusão real com `ApiService.deleteHabit()`
+- **HabitsScreen** — lista do banco
+  - `ApiService.getHabits()` com recarga automática
+
+### 8. Efeitos Neon com CustomPaint (Canvas Real)
+- **`_GlowBoxPainter`** — replica CSS `box-shadow` com outer + inset
+  - Outer glow: `MaskFilter.blur` + múltiplas camadas de halo
+  - Inset glow: `canvas.clipRRect` + `MaskFilter.blur` com `PaintingStyle.fill`
+  - Usado nos ícones Maslow e botão Salvar
+- **`_NeonBorderPainter`** — replica CSS `neon-border-purple`
+  - Outer glow + borda visível + inset glow
+  - Usado no input e toggle Diário
+- **Cores neon exatas**: `#BF00FF` (purple), `#FF4D4D` (red), `#FFAA00` (orange), `#00F2FF` (cyan), `#007FFF` (blue), `#D946EF` (pink)
+- **Fundo com grid** 40px via `CustomPaint` (`_GridPainter`)
+
 ---
 
 ## ⚠️ Pendente / Em andamento
@@ -78,8 +127,9 @@ App Flutter de rastreamento de hábitos baseado na Pirâmide de Maslow. Migraç�
 - [ ] Testar fluxo completo: cadastro → login → criar hábito → registrar → logout
 
 ### Prioridade 2 — Telas faltantes
-- [ ] Tela de criação/edição de hábito
-- [ ] Tela de detalhes do hábito
+- [x] ~~Tela de criação/edição de hábito~~ ✅
+- [x] ~~Tela de detalhes do hábito~~ ✅
+- [ ] Tela de edição de hábito (reutilizar create com dados preenchidos)
 - [ ] Tela de configurações (notificações, aparência, tema)
 - [ ] Tela de onboarding (primeira vez)
 
@@ -92,8 +142,9 @@ App Flutter de rastreamento de hábitos baseado na Pirâmide de Maslow. Migraç�
 ### Prioridade 4 — Polish
 - [ ] Animações de transição entre telas
 - [ ] Skeleton loading nos cards
-- [ ] Pull-to-refresh nos dados
+- [ ] Pull-to-refresh nos dados (implementado em HabitsScreen, falta nas outras)
 - [ ] Tratamento de erro offline
+- [ ] Aplicar CustomPaint neon nas outras telas (home, detail, progress)
 
 ---
 
@@ -122,8 +173,10 @@ lovitz-app/
 │   │   └── api_service.dart      # CRUD completo (habits, logs, achievements)
 │   ├── screens/
 │   │   ├── auth_screen.dart      # Login/cadastro
-│   │   ├── home_screen.dart      # Tela principal + pirâmide
-│   │   ├── habits_screen.dart    # Lista de hábitos
+│   │   ├── home_screen.dart      # Tela principal + pirâmide (dados reais)
+│   │   ├── habits_screen.dart    # Lista de hábitos (Supabase)
+│   │   ├── create_habit_screen.dart  # Criar hábito (CustomPaint neon)
+│   │   ├── habit_detail_screen.dart  # Detalhes + calendário + toggle
 │   │   ├── progress_screen.dart  # Progresso
 │   │   ├── profile_screen.dart   # Perfil + stats + logout
 │   │   └── maslow_detail_screen.dart
@@ -144,12 +197,19 @@ lovitz-app/
 - **Tabelas:** users, habits, habit_logs, achievements, user_achievements
 
 ### Design System
-- **Background:** `#0D0D1A`
-- **Surface:** `#1E1E38`
+- **Background:** `#0C0A18` (create), `#0D0D1A` (outras)
+- **Surface:** `#1E1E38` / `#1A162B` (card)
 - **Primary:** `#8B70E8` (roxo)
+- **Neon:** `#BF00FF` (purple), `#D946EF` (pink), `#FF4D4D` (red), `#FFAA00` (orange), `#00F2FF` (cyan), `#007FFF` (blue)
 - **Accent:** `#E040FB` (rosa), `#FF8C42` (laranja), `#6FCF97` (verde)
 - **Maslow:** `#E8C840` (fisiológico), `#E89040` (segurança), `#D45BA0` (pertencimento), `#5B8FD4` (estima), `#8B6CE0` (autorrealização)
 - **Fontes:** AppTextStyles (heading1-3, bodyLarge/Medium/Small, buttonText)
+
+### Efeitos Neon (CustomPaint)
+- **Outer glow:** `MaskFilter.blur(BlurStyle.normal, radius)` com `PaintingStyle.stroke`
+- **Inset glow:** `canvas.clipRRect()` + `MaskFilter.blur` com `PaintingStyle.fill`
+- **Halo:** múltiplas camadas com opacity decrescente
+- **Text glow:** `Shadow` com blur matching a cor do elemento
 
 ---
 
