@@ -139,7 +139,6 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
             onTap: () => Navigator.pop(context),
             child: const Icon(Icons.arrow_back_ios_new_rounded, color: _C.white80, size: 28),
           ),
-          // Título com glow neon forte (3 layers)
           Text(
             'Criar Novo Hábito',
             style: TextStyle(
@@ -150,7 +149,6 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
                 Shadow(color: const Color(0xFFBF00FF), blurRadius: 10),
                 Shadow(color: const Color(0xBF00FF00), blurRadius: 20),
                 Shadow(color: const Color(0x99BF00FF), blurRadius: 30),
-                // Halos extras para intensidade
                 Shadow(color: const Color(0xFFBF00FF), blurRadius: 4),
                 Shadow(color: const Color(0xFFBF00FF), blurRadius: 40),
               ],
@@ -187,59 +185,43 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
     );
   }
 
-  // ─── INPUT (neon-border-purple EXATO) ────────────────────
-  // CSS: box-shadow: 0 0 10px rgba(191,0,255,0.8), inset 0 0 5px rgba(191,0,255,0.5)
-  // border-color: rgba(191,0,255,0.8)
+  // ─── INPUT ───────────────────────────────────────────────
 
   Widget _nameInput() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _C.inputBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _C.neonPurple.withOpacity(0.8), width: 2),
-        // Outer glow
-        boxShadow: [
-          BoxShadow(color: _C.neonPurple.withOpacity(0.8), blurRadius: 10),
-          BoxShadow(color: _C.neonPurple.withOpacity(0.6), blurRadius: 20),
-        ],
+    return CustomPaint(
+      painter: _NeonBorderPainter(
+        color: _C.neonPurple,
+        radius: 16,
+        outerBlur: 10,
+        outerOpacity: 0.8,
+        insetBlur: 5,
+        insetOpacity: 0.5,
       ),
-      child: Stack(
-        children: [
-          // Inset glow simulado com container interno
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: RadialGradient(
-                colors: [
-                  _C.neonPurple.withOpacity(0.15),
-                  _C.neonPurple.withOpacity(0.0),
-                ],
-                center: Alignment.center,
-                radius: 1.2,
-              ),
-            ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _nameController,
-                  style: const TextStyle(color: _C.white60, fontSize: 18),
-                  decoration: const InputDecoration(
-                    hintText: 'Nome do Hábito',
-                    hintStyle: TextStyle(color: _C.white40, fontSize: 18),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.all(16),
-                  ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _C.inputBg,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _nameController,
+                style: const TextStyle(color: _C.white60, fontSize: 18),
+                decoration: const InputDecoration(
+                  hintText: 'Nome do Hábito',
+                  hintStyle: TextStyle(color: _C.white40, fontSize: 18),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.all(16),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(right: 16),
-                child: Icon(Icons.edit_rounded, color: _C.white40, size: 20),
-              ),
-            ],
-          ),
-        ],
+            ),
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Icon(Icons.edit_rounded, color: _C.white40, size: 20),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -267,30 +249,41 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
               return Expanded(
                 child: GestureDetector(
                   onTap: () => setState(() => _selectedFrequency = i),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: active ? _C.cardSolid : Colors.transparent,
-                      borderRadius: BorderRadius.circular(100),
-                      border: active
-                          ? Border.all(color: _C.neonPurple.withOpacity(0.8), width: 1.5)
-                          : null,
-                      boxShadow: active
-                          ? [
-                              BoxShadow(color: _C.neonPurple.withOpacity(0.8), blurRadius: 10),
-                              BoxShadow(color: _C.neonPurple.withOpacity(0.5), blurRadius: 20),
-                            ]
-                          : null,
-                    ),
-                    child: Center(
-                      child: Text(labels[i],
-                          style: TextStyle(
-                            color: active ? Colors.white : _C.white40,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          )),
-                    ),
-                  ),
+                  child: active
+                      ? CustomPaint(
+                          painter: _NeonBorderPainter(
+                            color: _C.neonPurple,
+                            radius: 100,
+                            outerBlur: 10,
+                            outerOpacity: 0.8,
+                            insetBlur: 5,
+                            insetOpacity: 0.5,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _C.cardSolid,
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: Center(
+                              child: Text(labels[i],
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Center(
+                            child: Text(labels[i],
+                                style: const TextStyle(
+                                    color: _C.white40,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                        ),
                 ),
               );
             }),
@@ -300,7 +293,7 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
     );
   }
 
-  // ─── MASLOW (glow-* EXATO do CSS) ───────────────────────
+  // ─── MASLOW ──────────────────────────────────────────────
   // glow-red: box-shadow: 0 0 20px rgba(255,77,77,0.6), inset 0 0 10px rgba(255,77,77,0.4)
 
   Widget _maslow() {
@@ -334,44 +327,31 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
       onTap: () => setState(() => _selectedLevel = idx),
       child: Column(
         children: [
-          // Container com glow forte + inset simulado
-          Container(
+          // CustomPaint com glow outer + inset (igual ao CSS glow-*)
+          SizedBox(
             width: 52,
             height: 52,
-            decoration: BoxDecoration(
-              color: _C.inputBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: c, width: 2),
-              // OUTER GLOW (blur 20, opacity 0.6)
-              boxShadow: [
-                BoxShadow(color: c.withOpacity(0.6), blurRadius: 20),
-                BoxShadow(color: c.withOpacity(0.4), blurRadius: 30),
-                BoxShadow(color: c.withOpacity(0.8), blurRadius: 6),
-              ],
-            ),
-            child: Stack(
-              children: [
-                // INSET GLOW simulado
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    gradient: RadialGradient(
-                      colors: [
-                        c.withOpacity(0.25),
-                        c.withOpacity(0.05),
-                        Colors.transparent,
-                      ],
-                      center: Alignment.center,
-                      radius: 0.9,
-                    ),
-                  ),
+            child: CustomPaint(
+              painter: _GlowBoxPainter(
+                color: c,
+                radius: 12,
+                outerBlur: 20,
+                outerOpacity: 0.6,
+                insetBlur: 10,
+                insetOpacity: 0.4,
+              ),
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: _C.inputBg,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                Center(child: Icon(d.icon, color: c, size: 28)),
-              ],
+                child: Icon(d.icon, color: c, size: 28),
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          // Label com cor vibrante
           Text(
             '${d.label}\n($pct%)',
             textAlign: TextAlign.center,
@@ -380,7 +360,6 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
               fontWeight: FontWeight.w600,
               color: c,
               height: 1.3,
-              // Text glow para labels
               shadows: [
                 Shadow(color: c.withOpacity(0.8), blurRadius: 6),
                 Shadow(color: c.withOpacity(0.4), blurRadius: 12),
@@ -393,58 +372,56 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
   }
 
   // ─── BOTÃO SALVAR ────────────────────────────────────────
-  // CSS: border-neon-purple, btn-save-glow (0 0 25px 0.9, 0 0 40px 0.5)
+  // btn-save-glow: box-shadow: 0 0 25px rgba(191,0,255,0.9), 0 0 40px rgba(191,0,255,0.5)
   // + shadow-[0_0_20px_#bf00ff,inset_0_0_10px_#bf00ff]
 
   Widget _saveBtn() {
     return GestureDetector(
       onTap: _saving ? null : _save,
-      child: Container(
+      child: SizedBox(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(
-            color: _saving ? _C.neonPurple.withOpacity(0.3) : _C.neonPurple.withOpacity(0.8),
-            width: 2,
-          ),
-          boxShadow: _saving
-              ? null
-              : [
-                  // btn-save-glow: 0 0 25px 0.9
-                  BoxShadow(color: _C.neonPurple.withOpacity(0.9), blurRadius: 25),
-                  // btn-save-glow: 0 0 40px 0.5
-                  BoxShadow(color: _C.neonPurple.withOpacity(0.5), blurRadius: 40),
-                  // shadow: 0 0 20px #bf00ff
-                  BoxShadow(color: _C.neonPurple.withOpacity(0.7), blurRadius: 20),
-                  // Halo externo
-                  BoxShadow(color: _C.neonPurple.withOpacity(0.3), blurRadius: 60),
-                ],
-        ),
-        child: Stack(
-          children: [
-            // Inset glow no botão
-            if (!_saving)
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(100),
-                  gradient: RadialGradient(
-                    colors: [
-                      _C.neonPurple.withOpacity(0.12),
-                      Colors.transparent,
-                    ],
-                    center: Alignment.center,
-                    radius: 1.5,
-                  ),
+        child: CustomPaint(
+          painter: _saving
+              ? _GlowBoxPainter(
+                  color: _C.neonPurple,
+                  radius: 100,
+                  outerBlur: 0,
+                  outerOpacity: 0,
+                  insetBlur: 0,
+                  insetOpacity: 0,
+                )
+              : _GlowBoxPainter(
+                  color: _C.neonPurple,
+                  radius: 100,
+                  outerBlur: 30,
+                  outerOpacity: 0.8,
+                  insetBlur: 10,
+                  insetOpacity: 0.4,
+                  // Camadas extras de glow (btn-save-glow)
+                  extraGlow: [
+                    _GlowLayer(blur: 25, opacity: 0.9),
+                    _GlowLayer(blur: 40, opacity: 0.5),
+                  ],
                 ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: _saving
+                    ? _C.neonPurple.withOpacity(0.3)
+                    : _C.neonPurple.withOpacity(0.8),
+                width: 2,
               ),
-            Center(
+            ),
+            child: Center(
               child: _saving
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: _C.neonPurple),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: _C.neonPurple),
                     )
                   : const Text(
                       'Salvar Hábito',
@@ -455,7 +432,7 @@ class _CreateHabitScreenState extends State<CreateHabitScreen> {
                       ),
                     ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -479,12 +456,185 @@ class _Lv {
   const _Lv(this.label, this.icon, this.color);
 }
 
+// ============================================================
+// CUSTOM PAINTERS — Glow real com Canvas
+// ============================================================
+
+/// Glow box com outer + inset (replica CSS box-shadow com inset)
+class _GlowBoxPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+  final double outerBlur;
+  final double outerOpacity;
+  final double insetBlur;
+  final double insetOpacity;
+  final List<_GlowLayer>? extraGlow;
+
+  _GlowBoxPainter({
+    required this.color,
+    required this.radius,
+    required this.outerBlur,
+    required this.outerOpacity,
+    required this.insetBlur,
+    required this.insetOpacity,
+    this.extraGlow,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(radius),
+    );
+
+    // ── OUTER GLOW ──
+    // Desenha múltiplas camadas de blur para simular box-shadow
+    if (outerBlur > 0) {
+      // Camada principal
+      _drawGlowLayer(canvas, rrect, outerBlur, outerOpacity);
+
+      // Camadas extras (btn-save-glow)
+      if (extraGlow != null) {
+        for (final layer in extraGlow!) {
+          _drawGlowLayer(canvas, rrect, layer.blur, layer.opacity);
+        }
+      }
+    }
+
+    // ── BORDER (borda visível) ──
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = color.withOpacity(0.8);
+    canvas.drawRRect(rrect, borderPaint);
+
+    // ── INSET GLOW ──
+    // Clipa dentro do shape e desenha blur interno
+    if (insetBlur > 0) {
+      canvas.save();
+      canvas.clipRRect(rrect);
+
+      // Desenha o glow interno como preenchimento com blur
+      final insetPaint = Paint()
+        ..color = color.withOpacity(insetOpacity)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, insetBlur)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(rrect, insetPaint);
+
+      // Halo interno mais suave
+      final innerHalo = Paint()
+        ..color = color.withOpacity(insetOpacity * 0.5)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, insetBlur * 2)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(rrect, innerHalo);
+
+      canvas.restore();
+    }
+  }
+
+  void _drawGlowLayer(Canvas canvas, RRect rrect, double blur, double opacity) {
+    final paint = Paint()
+      ..color = color.withOpacity(opacity)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawRRect(rrect, paint);
+
+    // Segundo passe mais suave (halo)
+    final halo = Paint()
+      ..color = color.withOpacity(opacity * 0.4)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur * 1.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawRRect(rrect, halo);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowBoxPainter old) =>
+      old.color != color ||
+      old.outerBlur != outerBlur ||
+      old.insetBlur != insetBlur ||
+      old.outerOpacity != outerOpacity;
+}
+
+/// Neon border com outer + inset glow (para input e toggle)
+class _NeonBorderPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+  final double outerBlur;
+  final double outerOpacity;
+  final double insetBlur;
+  final double insetOpacity;
+
+  _NeonBorderPainter({
+    required this.color,
+    required this.radius,
+    required this.outerBlur,
+    required this.outerOpacity,
+    required this.insetBlur,
+    required this.insetOpacity,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(radius),
+    );
+
+    // ── OUTER GLOW ──
+    if (outerBlur > 0) {
+      final outerPaint = Paint()
+        ..color = color.withOpacity(outerOpacity)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, outerBlur)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      canvas.drawRRect(rrect, outerPaint);
+    }
+
+    // ── BORDER ──
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = color.withOpacity(outerOpacity),
+    );
+
+    // ── INSET GLOW ──
+    if (insetBlur > 0) {
+      canvas.save();
+      canvas.clipRRect(rrect);
+
+      final insetPaint = Paint()
+        ..color = color.withOpacity(insetOpacity)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, insetBlur)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(rrect, insetPaint);
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _NeonBorderPainter old) =>
+      old.color != color || old.outerBlur != outerBlur;
+}
+
+class _GlowLayer {
+  final double blur;
+  final double opacity;
+  const _GlowLayer({required this.blur, required this.opacity});
+}
+
 // ─── GRID BACKGROUND ──────────────────────────────────────
 
 class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = Colors.white.withOpacity(0.08)..strokeWidth = 1;
+    final p = Paint()
+      ..color = Colors.white.withOpacity(0.08)
+      ..strokeWidth = 1;
     for (double y = 0; y < size.height; y += 40) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
     }
