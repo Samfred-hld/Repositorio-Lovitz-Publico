@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'screens/habits_screen.dart';
 import 'screens/progress_screen.dart';
 import 'screens/profile_screen.dart';
@@ -17,7 +17,7 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   final _screens = const [
-    HomeScreen(),
+    DashboardScreen(),
     HabitsScreen(),
     ProgressScreen(),
     ProfileScreen(),
