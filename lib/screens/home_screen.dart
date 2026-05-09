@@ -260,36 +260,55 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMaslowPyramid() {
-    final reversedLevels = _maslowLevels.reversed.toList();
-    const pyramidHeight = 260.0;
+    final reversedLevels = _maslowLevels.reversed.toList(); // topo → base
+    const pyramidHeight = 320.0;
+    const levelCount = 5;
+    const gap = MaslowPyramidPainter.gap;
+    final levelDrawH = (pyramidHeight - (levelCount - 1) * gap) / levelCount;
 
     return SizedBox(
       height: pyramidHeight,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final totalWidth = constraints.maxWidth;
-          // A pirâmide ocupa ~55% da largura total
-          final pyramidWidth = totalWidth * 0.55;
+          // Pirâmide ocupa 65% da largura total
+          final pyramidWidth = totalWidth * 0.65;
 
           return Stack(
+            clipBehavior: Clip.none,
             children: [
-              // 1. Barras de progresso/labels (camada inferior)
-              ...List.generate(5, (i) {
+              // ── 1. PIRÂMIDE ──────────────────────────────────────────
+              Positioned(
+                left: 0,
+                top: 0,
+                width: pyramidWidth,
+                height: pyramidHeight,
+                child: CustomPaint(
+                  painter: MaslowPyramidPainter(levels: reversedLevels),
+                ),
+              ),
+
+              // ── 2. LABELS — cada uma começa na borda direita do SEU nível ─
+              ...List.generate(levelCount, (i) {
                 final level = reversedLevels[i];
-                const double levelGap = 5.0;
-                final adjustedLevelHeight = (pyramidHeight - (levelGap * 4)) / 5;
-                final yPos = i * (adjustedLevelHeight + levelGap);
+                final yTop = i * (levelDrawH + gap);
+
+                // Borda direita do nível i na sua posição dentro de pyramidWidth:
+                // right_edge = (pyramidWidth / 2) * (1 + (i + 0.5) / levelCount)
+                // Pequena sobreposição de 6px para ancorar no trapézio
+                final tMid = (i + 0.5) / levelCount;
+                final labelLeft = (pyramidWidth / 2) * (1 + tMid) - 6;
 
                 return Positioned(
-                  left: pyramidWidth / 2, // Começa do centro da pirâmide
+                  left: labelLeft,
                   right: 0,
-                  top: yPos + 6, // espaçamento sutil entre as barras
-                  height: adjustedLevelHeight - 12,
+                  top: yTop + 5,
+                  height: levelDrawH - 10,
                   child: Container(
-                    padding: const EdgeInsets.only(right: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A30).withOpacity(0.75), // painel escuro visível
-                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xFF12122A).withOpacity(0.88),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.07),
                         width: 1,
@@ -301,22 +320,18 @@ class _HomeScreenState extends State<HomeScreen>
                         Text(
                           level.label,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withOpacity(0.80),
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 32, // Largura fixa para alinhar as porcentagens
-                          child: Text(
-                            level.percentage,
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        const SizedBox(width: 10),
+                        Text(
+                          level.percentage,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -325,23 +340,12 @@ class _HomeScreenState extends State<HomeScreen>
                 );
               }),
 
-              // 2. A pirâmide (CustomPaint)
-              Positioned(
-                left: 0,
-                top: 0,
-                width: pyramidWidth,
-                height: pyramidHeight,
-                child: CustomPaint(
-                  painter: MaslowPyramidPainter(levels: reversedLevels),
-                ),
-              ),
-
-              // 3. Ícones sobrepostos à pirâmide
-              ...List.generate(5, (i) {
+              // ── 3. ÍCONES — centrados em cada nível da pirâmide ──────
+              ...List.generate(levelCount, (i) {
                 final level = reversedLevels[i];
-                const double levelGap = 5.0;
-                final adjustedLevelHeight = (pyramidHeight - (levelGap * 4)) / 5;
-                final yCenter = i * (adjustedLevelHeight + levelGap) + adjustedLevelHeight / 2 + (i == 0 ? adjustedLevelHeight * 0.15 : adjustedLevelHeight * 0.05);
+                final yTop = i * (levelDrawH + gap);
+                // Centro exato do nível (sem offset arbitrário)
+                final yCenter = yTop + levelDrawH / 2;
                 final xCenter = pyramidWidth / 2;
 
                 return Positioned(
@@ -358,25 +362,21 @@ class _HomeScreenState extends State<HomeScreen>
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: level.color.withOpacity(0.30),   // fundo colorido visível
+                        color: level.color.withOpacity(0.35),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: level.color.withOpacity(0.60), // borda na cor do nível
-                          width: 1.0,
+                          color: level.color.withOpacity(0.70),
+                          width: 1.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: level.color.withOpacity(0.40),
-                            blurRadius: 8,
+                            color: level.color.withOpacity(0.45),
+                            blurRadius: 10,
                             spreadRadius: 1,
                           ),
                         ],
                       ),
-                      child: Icon(
-                        level.icon,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                      child: Icon(level.icon, color: Colors.white, size: 20),
                     ),
                   ),
                 );

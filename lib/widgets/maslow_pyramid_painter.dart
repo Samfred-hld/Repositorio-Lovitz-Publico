@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Painter customizado para a Pirâmide de Maslow.
-/// Desenha 5 níveis: topo = triângulo, os outros 4 = trapézios.
 class MaslowPyramidPainter extends CustomPainter {
   final List<MaslowLevel> levels;
+  static const double gap = 5.0;
 
-  MaslowPyramidPainter({required this.levels});
+  const MaslowPyramidPainter({required this.levels});
 
   Color _lighten(Color c, double amount) {
     final hsl = HSLColor.fromColor(c);
@@ -19,109 +18,98 @@ class MaslowPyramidPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final totalHeight = size.height;
-    final totalWidth = size.width;
-    final levelCount = levels.length;
+    final W = size.width;
+    final H = size.height;
+    final n = levels.length;
 
-    // Cada nível ocupa 1/5 da altura (com gap)
-    const double levelGap = 5.0;
-    final adjustedLevelHeight = (totalHeight - (levelGap * (levelCount - 1))) / levelCount;
+    // Altura de cada nível com gaps
+    final lh = (H - (n - 1) * gap) / n;
 
-    // Largura do topo (estreita) e da base (largura total)
-    final topWidth = totalWidth * 0.18;
-    final bottomWidth = totalWidth * 0.95;
-
-    for (int i = 0; i < levelCount; i++) {
+    for (int i = 0; i < n; i++) {
       final level = levels[i];
-      final y = i * (adjustedLevelHeight + levelGap);
 
-      // Largura proporcional: topo estreito, base larga
-      final currentTopWidth =
-          topWidth + (bottomWidth - topWidth) * (i / (levelCount - 1));
-      final currentBottomWidth = topWidth +
-          (bottomWidth - topWidth) * ((i + 1) / (levelCount - 1));
+      // Y de desenho (com gaps)
+      final yTop = i * (lh + gap);
+      final yBot = yTop + lh;
 
-      final centerX = totalWidth / 2;
+      // Larguras via geometria de pirâmide simétrica:
+      // apex = (W/2, 0), base corners = (0, H) e (W, H)
+      // Largura em y proporcional = W * (y / H)
+      final leftTop  = W / 2 * (1.0 - i.toDouble() / n);
+      final rightTop = W / 2 * (1.0 + i.toDouble() / n);
+      final leftBot  = W / 2 * (1.0 - (i + 1).toDouble() / n);
+      final rightBot = W / 2 * (1.0 + (i + 1).toDouble() / n);
 
-      // Pontos do polígono (trapézio ou triângulo no topo)
       final path = Path();
       if (i == 0) {
-        // Topo: triângulo
-        path.moveTo(centerX, y); // ponta superior
-        path.lineTo(centerX + currentBottomWidth / 2, y + adjustedLevelHeight);
-        path.lineTo(centerX - currentBottomWidth / 2, y + adjustedLevelHeight);
-        path.close();
+        // Triângulo: apex na ponta superior central
+        path.moveTo(W / 2, yTop);
+        path.lineTo(rightBot, yBot);
+        path.lineTo(leftBot, yBot);
       } else {
         // Trapézio
-        path.moveTo(centerX - currentTopWidth / 2, y);
-        path.lineTo(centerX + currentTopWidth / 2, y);
-        path.lineTo(centerX + currentBottomWidth / 2, y + adjustedLevelHeight);
-        path.lineTo(centerX - currentBottomWidth / 2, y + adjustedLevelHeight);
-        path.close();
+        path.moveTo(leftTop, yTop);
+        path.lineTo(rightTop, yTop);
+        path.lineTo(rightBot, yBot);
+        path.lineTo(leftBot, yBot);
       }
+      path.close();
 
-      // Preencher com gradiente
-      final rect = Rect.fromLTWH(0, y, totalWidth, adjustedLevelHeight);
-      final gradient = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          _lighten(level.color, 0.15),
-          level.color,
-          _darken(level.color, 0.12),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      );
-
+      // Gradiente: claro no topo, cor base, levemente escuro na base
       final fillPaint = Paint()
-        ..shader = gradient.createShader(rect)
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            _lighten(level.color, 0.18),
+            level.color,
+            _darken(level.color, 0.10),
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(Rect.fromLTWH(0, yTop, W, lh))
         ..style = PaintingStyle.fill;
 
-      // Glow 1: interno
-      final glowPaint = Paint()
-        ..color = level.color.withOpacity(0.55)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 6.0;
-      canvas.drawPath(path, glowPaint);
-
-      // Glow 2: halo externo suave
-      final outerGlowPaint = Paint()
-        ..color = level.color.withOpacity(0.25)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18.0)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 12.0;
-      canvas.drawPath(path, outerGlowPaint);
-      
-      canvas.drawPath(path, fillPaint);
-
-      // Highlight sutil no topo de cada trapézio (exceto no triângulo que é um ponto)
-      if (i > 0) {
-        final highlightPath = Path();
-        highlightPath.moveTo(centerX - currentTopWidth / 2, y);
-        highlightPath.lineTo(centerX + currentTopWidth / 2, y);
-        
-        final highlightPaint = Paint()
-          ..color = Colors.white.withOpacity(0.3)
+      // Glow simulado com múltiplos strokes (funciona em Flutter Web HTML renderer)
+      const glowStops = [
+        (strokeWidth: 18.0, opacity: 0.07),
+        (strokeWidth: 12.0, opacity: 0.14),
+        (strokeWidth:  6.0, opacity: 0.28),
+        (strokeWidth:  2.0, opacity: 0.65),
+      ];
+      for (final stop in glowStops) {
+        canvas.drawPath(path, Paint()
+          ..color = level.color.withOpacity(stop.opacity)
           ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = 1.5;
-
-        canvas.drawPath(highlightPath, highlightPaint);
+          ..strokeWidth = stop.strokeWidth
+          ..strokeJoin = StrokeJoin.round);
       }
 
-      // Borda sutil lateral/geral
-      final borderPaint = Paint()
+      // Fill principal
+      canvas.drawPath(path, fillPaint);
+
+      // Highlight na borda superior (exceto no triângulo, onde é só um ponto)
+      if (i > 0) {
+        canvas.drawLine(
+          Offset(leftTop, yTop),
+          Offset(rightTop, yTop),
+          Paint()
+            ..color = Colors.white.withOpacity(0.35)
+            ..strokeWidth = 1.5
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+
+      // Borda lateral suave
+      canvas.drawPath(path, Paint()
         ..color = Colors.white.withOpacity(0.08)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0;
-
-      canvas.drawPath(path, borderPaint);
+        ..strokeWidth = 1.0);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant MaslowPyramidPainter old) =>
+      old.levels != levels;
 }
 
 class MaslowLevel {
