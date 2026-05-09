@@ -259,14 +259,14 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMaslowPyramid() {
-    const pyramidHeight = 340.0;
+    const pyramidHeight = 360.0;
 
     return SizedBox(
       height: pyramidHeight,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final totalWidth = constraints.maxWidth;
-          final pyramidWidth = totalWidth * 0.55;
+          final pyramidWidth = totalWidth * 0.60;
           final labelsWidth = totalWidth - pyramidWidth - 16;
 
           // Levels from top (narrow) to base (wide) for the painter

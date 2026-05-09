@@ -4,11 +4,11 @@ import 'dart:math' as math;
 class MaslowPyramidPainter extends CustomPainter {
   final List<MaslowLevel> levels;
   final double cornerRadius;
-  static const double gap = 6.0;
+  static const double gap = 8.0;
 
   const MaslowPyramidPainter({
     required this.levels,
-    this.cornerRadius = 12.0,
+    this.cornerRadius = 14.0,
   });
 
   Color _lighten(Color c, double amount) {
@@ -21,9 +21,7 @@ class MaslowPyramidPainter extends CustomPainter {
     return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
   }
 
-  /// Creates a rounded trapezoid path.
-  /// [topWidth] < [bottomWidth], centered in [totalWidth].
-  /// [cornerRadius] rounds all 4 corners.
+  /// Rounded trapezoid: [topWidth] < [bottomWidth], centered in [totalWidth].
   Path _roundedTrapezoid({
     required double totalWidth,
     required double top,
@@ -39,6 +37,7 @@ class MaslowPyramidPainter extends CustomPainter {
     final br = cx + bottomWidth / 2;
     final h = bottom - top;
 
+    // Angle of the slanted edge
     final edgeAngle = math.atan2(h, (bl - tl));
     final sinA = math.sin(edgeAngle);
     final cosA = math.cos(edgeAngle);
@@ -58,7 +57,7 @@ class MaslowPyramidPainter extends CustomPainter {
       clockwise: false,
     );
 
-    // Right edge going up to top-right corner
+    // Right edge up to top-right corner
     path.lineTo(tr + dx, top + dy);
     path.arcToPoint(
       Offset(tr, top),
@@ -76,7 +75,7 @@ class MaslowPyramidPainter extends CustomPainter {
       clockwise: true,
     );
 
-    // Left edge going down to bottom-left corner
+    // Left edge down to bottom-left corner
     path.lineTo(bl + dx, bottom - dy);
     path.arcToPoint(
       Offset(bl, bottom),
@@ -100,10 +99,11 @@ class MaslowPyramidPainter extends CustomPainter {
       final level = levels[i];
 
       // i=0 is base (widest), i=n-1 is top (narrowest)
+      // Base uses 95% width, top uses 40% — pyramid shape
       final topFrac = i / n;
       final botFrac = (i + 1) / n;
-      final topWidth = W * (1.0 - topFrac * 0.55);
-      final botWidth = W * (1.0 - botFrac * 0.55);
+      final topWidth = W * (0.95 - topFrac * 0.55);
+      final botWidth = W * (0.95 - botFrac * 0.55);
 
       final yTop = i * (levelHeight + gap);
       final yBot = yTop + levelHeight;
@@ -119,9 +119,9 @@ class MaslowPyramidPainter extends CustomPainter {
 
       // Glow effect
       const glowStops = [
-        (strokeWidth: 20.0, opacity: 0.06),
-        (strokeWidth: 12.0, opacity: 0.12),
-        (strokeWidth: 5.0, opacity: 0.25),
+        (strokeWidth: 22.0, opacity: 0.05),
+        (strokeWidth: 14.0, opacity: 0.10),
+        (strokeWidth: 6.0, opacity: 0.22),
       ];
       for (final stop in glowStops) {
         canvas.drawPath(
@@ -150,7 +150,7 @@ class MaslowPyramidPainter extends CustomPainter {
           ).createShader(Rect.fromLTWH(0, yTop, W, levelHeight)),
       );
 
-      // Subtle top highlight (skip base level)
+      // Top highlight (skip base)
       if (i > 0) {
         final highlightTl = W / 2 - topWidth / 2 + cornerRadius;
         final highlightTr = W / 2 + topWidth / 2 - cornerRadius;
@@ -166,7 +166,7 @@ class MaslowPyramidPainter extends CustomPainter {
         }
       }
 
-      // Subtle outer border
+      // Outer border
       canvas.drawPath(
         path,
         Paint()
