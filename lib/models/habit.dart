@@ -61,21 +61,23 @@ class Habit {
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final data = <String, dynamic>{
       'name': name,
-      'description': description,
       'maslow_level': maslowLevel,
       'habit_type': habitType,
-      'frequency': frequency,
-      'target_value': targetValue,
-      'unit': unit,
-      'weight': weight,
-      'icon': icon,
-      'color': color,
       'is_active': isActive,
       'streak_current': streakCurrent,
       'streak_best': streakBest,
     };
+    // Only include non-null optional fields so DB defaults apply
+    if (description != null) data['description'] = description;
+    if (frequency != null) data['frequency'] = frequency;
+    if (targetValue != null) data['target_value'] = targetValue;
+    if (unit != null) data['unit'] = unit;
+    if (weight != null) data['weight'] = weight;
+    if (icon != null) data['icon'] = icon;
+    if (color != null) data['color'] = color;
+    return data;
   }
 
   Habit copyWith({
