@@ -10,16 +10,24 @@ import '../models/habit.dart';
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
+  /// Call this to refresh dashboard data (e.g. after creating a habit)
+  static _DashboardScreenState? _instance;
+
+  static void refresh() {
+    _instance?._loadData();
+  }
+
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final _api = ApiService();
   List<Habit> _habits = [];
   Map<String, dynamic> _stats = {};
   bool _loading = true;
+  bool _needsRefresh = false;
 
   late final AnimationController _fadeController;
   late final AnimationController _streakController;
@@ -55,11 +63,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
 
     _fadeController.forward();
+    DashboardScreen._instance = this;
     _loadData();
   }
 
   @override
   void dispose() {
+    DashboardScreen._instance = null;
     _fadeController.dispose();
     _streakController.dispose();
     _completedController.dispose();
@@ -124,25 +134,25 @@ class _DashboardScreenState extends State<DashboardScreen>
   static const _neonGreen = Color(0xFF39FF14);
 
   static const _maslowColors = [
-    Color(0xFFFFAA00), // Fisiológico
-    Color(0xFF39FF14), // Segurança
-    Color(0xFF00F2FF), // Pertencimento
+    Color(0xFFBF00FF), // Autorrealização (top)
     Color(0xFF007FFF), // Estima
-    Color(0xFFBF00FF), // Autorrealização
+    Color(0xFF00F2FF), // Pertencimento
+    Color(0xFF39FF14), // Segurança
+    Color(0xFFFFAA00), // Fisiológico (base)
   ];
   static const _maslowIcons = [
-    Icons.local_fire_department_rounded,
-    Icons.shield_rounded,
-    Icons.people_rounded,
-    Icons.emoji_events_rounded,
-    Icons.auto_awesome_rounded,
+    Icons.auto_awesome_rounded, // Autorrealização
+    Icons.emoji_events_rounded, // Estima
+    Icons.people_rounded, // Pertencimento
+    Icons.shield_rounded, // Segurança
+    Icons.local_fire_department_rounded, // Fisiológico
   ];
   static const _maslowNames = [
-    'Fisiológico',
-    'Segurança',
-    'Pertencimento',
-    'Estima',
     'Autorrealização',
+    'Estima',
+    'Pertencimento',
+    'Segurança',
+    'Fisiológico',
   ];
 
   // ============================================================
@@ -942,39 +952,33 @@ class _MaslowPyramidPainter extends CustomPainter {
     final startY = 20.0;
     final cx = size.width / 2;
 
-    // Compute shared boundary widths (6 boundaries for 5 levels)
-    // base=100% → top=30% — dramatic taper
+    // Boundary widths: top (narrow) → bottom (wide)
+    // boundaryWidths[0] = apex, boundaryWidths[5] = base
     final boundaryWidths = List.generate(n + 1, (i) {
-      return size.width * (1.0 - (i / n) * 0.70);
+      return size.width * (0.30 + (i / n) * 0.70);
     });
 
-    // Compute Y positions for each boundary
-    final boundaryYs = List.generate(n + 1, (i) {
-      return startY + i * (levelH + gap);
-    });
-
+    // Draw from TOP to BOTTOM (apex first, base last)
+    // i=0 = apex (narrowest), i=4 = base (widest)
     for (int i = 0; i < n; i++) {
       final color = colors[i];
 
-      // Animation: each level fades in with delay
+      // Animate top first, bottom last
       final lp =
           ((progress - i * 0.08).clamp(0.0, 0.7) / 0.7).clamp(0.0, 1.0);
       if (lp <= 0) continue;
 
-      // Shared widths — bottom of this level = top of next level
       final topW = boundaryWidths[i] * lp;
       final botW = boundaryWidths[i + 1] * lp;
 
-      final yTop = boundaryYs[i];
-      final yBot = boundaryYs[i + 1];
+      final yTop = startY + i * (levelH + gap);
+      final yBot = yTop + levelH;
 
-      // Trapezoid corners
       final tl = cx - topW / 2;
       final tr = cx + topW / 2;
       final bl = cx - botW / 2;
       final br = cx + botW / 2;
 
-      // Build trapezoid path
       final path = Path()
         ..moveTo(bl, yBot)
         ..lineTo(br, yBot)
@@ -1009,7 +1013,7 @@ class _MaslowPyramidPainter extends CustomPainter {
           ).createShader(Rect.fromLTWH(0, yTop, size.width, levelH)),
       );
 
-      // 3) Neon edge stroke — bright
+      // 3) Neon edge stroke
       canvas.drawPath(
         path,
         Paint()
@@ -1030,7 +1034,7 @@ class _MaslowPyramidPainter extends CustomPainter {
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
 
-      // 5) Top highlight (not on base)
+      // 5) Top highlight (not on apex)
       if (i > 0 && topW > 30) {
         canvas.drawLine(
           Offset(tl + 10, yTop + 1.5),
@@ -1060,7 +1064,6 @@ class _MaslowPyramidPainter extends CustomPainter {
         final lineStart = cx + botW / 2 - 2;
         final lineEnd = cx + botW / 2 + 22;
 
-        // Main line
         canvas.drawLine(
           Offset(lineStart, cy),
           Offset(lineEnd, cy),
@@ -1069,7 +1072,6 @@ class _MaslowPyramidPainter extends CustomPainter {
             ..strokeWidth = 1.5
             ..strokeCap = StrokeCap.round,
         );
-        // Glow on line
         canvas.drawLine(
           Offset(lineStart, cy),
           Offset(lineEnd, cy),

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../utils/constants.dart';
 import 'create_habit_screen.dart';
 import 'habit_detail_screen.dart';
+import 'dashboard_screen.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -109,7 +110,10 @@ class _HabitsScreenState extends State<HabitsScreen> {
                         MaterialPageRoute(
                             builder: (_) => const CreateHabitScreen()),
                       );
-                      if (created == true) _loadHabits();
+                      if (created == true) {
+                        _loadHabits();
+                        DashboardScreen.refresh();
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.all(10),
@@ -204,6 +208,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
               builder: (_) => HabitDetailScreen(habit: habit)),
         );
         _loadHabits(); // recarrega ao voltar (streak pode ter mudado)
+        DashboardScreen.refresh();
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
