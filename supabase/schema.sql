@@ -75,7 +75,7 @@ CREATE UNIQUE INDEX idx_logs_habit_date ON public.habit_logs(habit_id, log_date)
 
 -- Queries otimizadas
 CREATE INDEX idx_logs_user_date  ON public.habit_logs(user_id, log_date DESC);
-CREATE INDEX idx_logs_habit_date ON public.habit_logs(habit_id, log_date DESC);
+CREATE INDEX idx_logs_habit_date_asc ON public.habit_logs(habit_id, log_date DESC);
 
 -- ============================================================
 -- 4. ACHIEVEMENTS (catálogo de conquistas)
