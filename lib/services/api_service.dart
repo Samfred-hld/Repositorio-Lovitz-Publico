@@ -17,6 +17,8 @@ class ApiService {
   // ==================== HABITS ====================
 
   Future<List<Habit>> getHabits({bool activeOnly = true}) async {
+    if (_userId.isEmpty) return [];
+
     var query = _client
         .from(ApiConstants.habitsTable)
         .select()
@@ -31,6 +33,8 @@ class ApiService {
   }
 
   Future<Habit> createHabit(Habit habit) async {
+    if (_userId.isEmpty) throw Exception('Usuário não autenticado');
+
     final data = habit.toJson();
     data['user_id'] = _userId;
 
@@ -134,37 +138,47 @@ class ApiService {
   Future<Map<String, dynamic>> getUserStats() async {
     final today = DateTime.now().toIso8601String().split('T')[0];
 
-    // Busca sequencial (evita problema de tipo no Future.wait)
-    final user = await _client
-        .from(ApiConstants.usersTable)
-        .select('xp_total, level')
-        .eq('id', _userId)
-        .single();
+    // Defaults in case any query fails
+    int xpTotal = 0, level = 1, activeHabits = 0, completedToday = 0;
 
-    final habits = await _client
-        .from(ApiConstants.habitsTable)
-        .select('id')
-        .eq('user_id', _userId)
-        .eq('is_active', true) as List;
+    try {
+      final user = await _client
+          .from(ApiConstants.usersTable)
+          .select('xp_total, level')
+          .eq('id', _userId)
+          .maybeSingle();
+      if (user != null) {
+        xpTotal = user['xp_total'] ?? 0;
+        level = user['level'] ?? 1;
+      }
+    } catch (_) {}
 
-    final todayLogs = await _client
-        .from(ApiConstants.habitLogsTable)
-        .select('completed, points')
-        .eq('user_id', _userId)
-        .eq('log_date', today) as List;
+    try {
+      final habits = await _client
+          .from(ApiConstants.habitsTable)
+          .select('id')
+          .eq('user_id', _userId)
+          .eq('is_active', true) as List;
+      activeHabits = habits.length;
+    } catch (_) {}
 
-    final completedToday =
-        todayLogs.where((l) => l['completed'] == true).length;
-    final pointsToday = todayLogs.fold<int>(
-        0, (sum, l) => sum + (l['points'] as int? ?? 0));
+    try {
+      final todayLogs = await _client
+          .from(ApiConstants.habitLogsTable)
+          .select('completed, points')
+          .eq('user_id', _userId)
+          .eq('log_date', today) as List;
+      completedToday =
+          todayLogs.where((l) => l['completed'] == true).length;
+    } catch (_) {}
 
     return {
-      'xp_total': user['xp_total'] ?? 0,
-      'level': user['level'] ?? 1,
-      'active_habits': habits.length,
+      'xp_total': xpTotal,
+      'level': level,
+      'active_habits': activeHabits,
       'completed_today': completedToday,
-      'total_habits_today': habits.length,
-      'points_today': pointsToday,
+      'total_habits_today': activeHabits,
+      'points_today': 0,
     };
   }
 }

@@ -72,13 +72,20 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _loadData() async {
     try {
       final habits = await _api.getHabits();
-      final stats = await _api.getUserStats();
       if (!mounted) return;
       setState(() {
         _habits = habits;
-        _stats = stats;
         _loading = false;
       });
+
+      // Stats separate — don't fail the whole screen if stats fail
+      try {
+        final stats = await _api.getUserStats();
+        if (mounted) setState(() => _stats = stats);
+      } catch (_) {
+        // Stats not critical — use defaults
+      }
+
       _streakController.forward();
       _completedController.forward();
       Future.delayed(const Duration(milliseconds: 300),
@@ -161,7 +168,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                     _buildStatsSection(),
                     const SizedBox(height: 32),
                     _buildPyramidSection(),
-                    // Extra space for bottom nav
                     SizedBox(
                         height: MediaQuery.of(context).padding.bottom + 100),
                   ],
@@ -171,7 +177,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ],
       ),
-      // NO bottomNavigationBar — MainShell handles it
     );
   }
 
@@ -433,7 +438,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildCompletedCard() {
     final completedToday = _stats['completed_today'] ?? 0;
-    final totalHabits = _stats['active_habits'] ?? 0;
+    final totalHabits = _stats['active_habits'] ?? _habits.length;
     final pct =
         totalHabits > 0 ? ((completedToday / totalHabits) * 100).round() : 0;
 
@@ -556,7 +561,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildPyramidBody() {
-    final progress = _loading ? <int, Map<String, dynamic>>{} : _maslowProgress();
+    final progress =
+        _loading ? <int, Map<String, dynamic>>{} : _maslowProgress();
     const defaultPcts = [33, 22, 11, 0, 0];
 
     return AnimatedBuilder(
@@ -596,7 +602,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         final levelNum = levelIndex + 1;
                         final pct = _loading
                             ? defaultPcts[levelIndex]
-                            : (progress[levelNum]?['pct'] ?? defaultPcts[levelIndex]);
+                            : (progress[levelNum]?['pct'] ??
+                                defaultPcts[levelIndex]);
                         final total = _loading
                             ? 0
                             : (progress[levelNum]?['total'] ?? 0);
@@ -910,7 +917,10 @@ class _GridPainter extends CustomPainter {
 }
 
 // ================================================================
-// MASLOW PYRAMID PAINTER — Proper tapered pyramid with neon
+// MASLOW PYRAMID PAINTER — Proper connected pyramid
+//
+// Each level shares edges: bottom of level[i] = top of level[i+1]
+// This creates a true pyramid shape where levels stack seamlessly.
 // ================================================================
 class _MaslowPyramidPainter extends CustomPainter {
   final List<Color> colors;
@@ -926,42 +936,45 @@ class _MaslowPyramidPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const n = 5;
-    const gap = 8.0;
+    const gap = 6.0;
     final totalGap = (n - 1) * gap;
     final levelH = (size.height - totalGap - 20) / n;
     final startY = 20.0;
     final cx = size.width / 2;
 
+    // Compute shared boundary widths (6 boundaries for 5 levels)
+    // base=100% → top=30% — dramatic taper
+    final boundaryWidths = List.generate(n + 1, (i) {
+      return size.width * (1.0 - (i / n) * 0.70);
+    });
+
+    // Compute Y positions for each boundary
+    final boundaryYs = List.generate(n + 1, (i) {
+      return startY + i * (levelH + gap);
+    });
+
     for (int i = 0; i < n; i++) {
-      // i=0 = base (widest), i=4 = top (narrowest)
       final color = colors[i];
 
-      // Width fractions: base ~92%, top ~40%
-      final topWidthFrac = 0.92 - (i / n) * 0.52;
-      final botWidthFrac = 0.92 - ((i + 1) / n) * 0.52;
-
-      final topW = size.width * topWidthFrac;
-      final botW = size.width * botWidthFrac;
-
-      final yTop = startY + i * (levelH + gap);
-      final yBot = yTop + levelH;
-
-      // Animate: each level fades in with a slight delay
+      // Animation: each level fades in with delay
       final lp =
           ((progress - i * 0.08).clamp(0.0, 0.7) / 0.7).clamp(0.0, 1.0);
       if (lp <= 0) continue;
 
-      // Apply animation scale
-      final aTopW = topW * lp;
-      final aBotW = botW * lp;
+      // Shared widths — bottom of this level = top of next level
+      final topW = boundaryWidths[i] * lp;
+      final botW = boundaryWidths[i + 1] * lp;
+
+      final yTop = boundaryYs[i];
+      final yBot = boundaryYs[i + 1];
 
       // Trapezoid corners
-      final tl = cx - aTopW / 2;
-      final tr = cx + aTopW / 2;
-      final bl = cx - aBotW / 2;
-      final br = cx + aBotW / 2;
+      final tl = cx - topW / 2;
+      final tr = cx + topW / 2;
+      final bl = cx - botW / 2;
+      final br = cx + botW / 2;
 
-      // Build path
+      // Build trapezoid path
       final path = Path()
         ..moveTo(bl, yBot)
         ..lineTo(br, yBot)
@@ -969,15 +982,15 @@ class _MaslowPyramidPainter extends CustomPainter {
         ..lineTo(tl, yTop)
         ..close();
 
-      // 1) Outer glow
+      // 1) Outer neon glow
       canvas.drawPath(
         path,
         Paint()
-          ..color = color.withOpacity(0.15 * lp)
+          ..color = color.withOpacity(0.18 * lp)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 10
+          ..strokeWidth = 12
           ..strokeJoin = StrokeJoin.round
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
 
       // 2) Fill — dark gradient
@@ -988,80 +1001,81 @@ class _MaslowPyramidPainter extends CustomPainter {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              color.withOpacity(0.15 * lp),
-              color.withOpacity(0.06 * lp),
-              Colors.black.withOpacity(0.20),
+              color.withOpacity(0.18 * lp),
+              color.withOpacity(0.08 * lp),
+              Colors.black.withOpacity(0.25),
             ],
             stops: const [0.0, 0.4, 1.0],
           ).createShader(Rect.fromLTWH(0, yTop, size.width, levelH)),
       );
 
-      // 3) Neon edge stroke
+      // 3) Neon edge stroke — bright
       canvas.drawPath(
         path,
         Paint()
-          ..color = color.withOpacity(0.55 * lp)
+          ..color = color.withOpacity(0.60 * lp)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8
+          ..strokeWidth = 2.0
           ..strokeJoin = StrokeJoin.round,
       );
 
-      // 4) Inner glow
+      // 4) Inner glow on edges
       canvas.drawPath(
         path,
         Paint()
-          ..color = color.withOpacity(0.20 * lp)
+          ..color = color.withOpacity(0.22 * lp)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 4
+          ..strokeWidth = 5
           ..strokeJoin = StrokeJoin.round
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
 
-      // 5) Top highlight
-      if (i > 0 && aTopW > 24) {
+      // 5) Top highlight (not on base)
+      if (i > 0 && topW > 30) {
         canvas.drawLine(
           Offset(tl + 10, yTop + 1.5),
           Offset(tr - 10, yTop + 1.5),
           Paint()
-            ..color = Colors.white.withOpacity(0.25 * lp)
+            ..color = Colors.white.withOpacity(0.30 * lp)
             ..strokeWidth = 1.0
             ..strokeCap = StrokeCap.round,
         );
       }
 
-      // 6) Border
+      // 6) Subtle border
       canvas.drawPath(
         path,
         Paint()
-          ..color = Colors.white.withOpacity(0.06 * lp)
+          ..color = Colors.white.withOpacity(0.07 * lp)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0,
       );
 
-      // 7) Icon in center
+      // 7) Icon in center with glow
       final cy = (yTop + yBot) / 2;
       _drawGlowIcon(canvas, icons[i], color, cx, cy, lp);
 
-      // 8) Connecting line to cards
+      // 8) Connecting line to cards (right edge → card area)
       if (lp > 0.5) {
-        final lineStart = cx + aBotW / 2 - 2;
-        final lineEnd = cx + aBotW / 2 + 22;
-        final lineY = cy;
+        final lineStart = cx + botW / 2 - 2;
+        final lineEnd = cx + botW / 2 + 22;
 
+        // Main line
         canvas.drawLine(
-          Offset(lineStart, lineY),
-          Offset(lineEnd, lineY),
+          Offset(lineStart, cy),
+          Offset(lineEnd, cy),
           Paint()
-            ..color = color.withOpacity(0.35 * lp)
+            ..color = color.withOpacity(0.40 * lp)
             ..strokeWidth = 1.5
             ..strokeCap = StrokeCap.round,
         );
+        // Glow on line
         canvas.drawLine(
-          Offset(lineStart, lineY),
-          Offset(lineEnd, lineY),
+          Offset(lineStart, cy),
+          Offset(lineEnd, cy),
           Paint()
-            ..color = color.withOpacity(0.15 * lp)
-            ..strokeWidth = 4
+            ..color = color.withOpacity(0.18 * lp)
+            ..strokeWidth = 5
             ..strokeCap = StrokeCap.round
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
         );
@@ -1080,8 +1094,8 @@ class _MaslowPyramidPainter extends CustomPainter {
           fontSize: 20,
           color: color.withOpacity(0.5 * lp),
           shadows: [
-            Shadow(color: color.withOpacity(0.8 * lp), blurRadius: 12),
-            Shadow(color: color.withOpacity(0.4 * lp), blurRadius: 24),
+            Shadow(color: color.withOpacity(0.9 * lp), blurRadius: 14),
+            Shadow(color: color.withOpacity(0.5 * lp), blurRadius: 28),
           ],
         ),
       ),
