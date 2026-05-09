@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/home_screen.dart';
+import 'main_shell.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -26,14 +26,14 @@ class LovitzApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF120808),
+        scaffoldBackgroundColor: AppColors.background,
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFF6D00),
+          primary: AppColors.primary,
           secondary: Color(0xFFFFD600),
           surface: Color(0xFF120808),
         ),
       ),
-      home: const HomeScreen(),
+      home: const MainShell(),
     );
   }
 }

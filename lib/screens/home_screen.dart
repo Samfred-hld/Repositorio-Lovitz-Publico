@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/maslow_pyramid_painter.dart';
-import '../widgets/bottom_nav_bar.dart';
+import 'maslow_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,7 +12,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  int _currentNavIndex = 0;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -88,15 +87,13 @@ class _HomeScreenState extends State<HomeScreen>
                 _buildSummaryCards(),
                 const SizedBox(height: 32),
                 _buildMaslowSection(),
-                const SizedBox(height: 100), // espaço para o bottom nav
+                SizedBox(
+                    height: MediaQuery.of(context).padding.bottom +
+                        80), // espaço para o bottom nav
               ],
             ),
           ),
         ),
-      ),
-      bottomNavigationBar: AppBottomNavBar(
-        currentIndex: _currentNavIndex,
-        onTap: (index) => setState(() => _currentNavIndex = index),
       ),
     );
   }
@@ -136,6 +133,30 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
+          // Avatar
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF6040C0),
+                  Color(0xFF8B70E8),
+                ],
+              ),
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.person_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           // Sino de notificação
           SizedBox(
             width: 42,
@@ -164,29 +185,6 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          Container(
-            width: 42,
-            height: 42,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF6040C0),
-                  Color(0xFF8B70E8),
-                ],
-              ),
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.person_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -194,8 +192,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   // ─── CARDS DE RESUMO ──────────────────────────────────────────
   Widget _buildSummaryCards() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
           Expanded(
@@ -205,11 +203,11 @@ class _HomeScreenState extends State<HomeScreen>
               label: 'Sequência atual',
               value: '12',
               subtext: 'dias',
-              valueColor: const Color(0xFFE040FB),
+              valueColor: Color(0xFFE040FB),
               footer: 'Melhor sequência: 28 dias',
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: _SummaryCard(
               icon: Icons.check_circle_rounded,
@@ -278,13 +276,13 @@ class _HomeScreenState extends State<HomeScreen>
           final totalWidth = constraints.maxWidth;
           // A pirâmide ocupa ~55% da largura total
           final pyramidWidth = totalWidth * 0.55;
-          
+
           return Stack(
             children: [
               // 1. Barras de progresso/labels (camada inferior)
               ...List.generate(5, (i) {
                 final level = reversedLevels[i];
-                final levelHeight = pyramidHeight / 5;
+                const levelHeight = pyramidHeight / 5;
                 final yPos = i * levelHeight;
 
                 return Positioned(
@@ -311,7 +309,8 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                         const SizedBox(width: 12),
                         SizedBox(
-                          width: 32, // Largura fixa para alinhar as porcentagens
+                          width:
+                              32, // Largura fixa para alinhar as porcentagens
                           child: Text(
                             level.percentage,
                             textAlign: TextAlign.right,
@@ -342,24 +341,34 @@ class _HomeScreenState extends State<HomeScreen>
               // 3. Ícones sobrepostos à pirâmide
               ...List.generate(5, (i) {
                 final level = reversedLevels[i];
-                final levelHeight = pyramidHeight / 5;
-                final yCenter = i * levelHeight + levelHeight / 2;
+                const levelHeight = pyramidHeight / 5;
+                final yCenter = i * levelHeight +
+                    levelHeight / 2 +
+                    (i == 0 ? levelHeight * 0.15 : levelHeight * 0.05);
                 final xCenter = pyramidWidth / 2;
 
                 return Positioned(
                   left: xCenter - 16,
                   top: yCenter - 16,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MaslowDetailScreen(level: level),
+                      ),
                     ),
-                    child: Icon(
-                      level.icon,
-                      color: Colors.white,
-                      size: 18,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        level.icon,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 );
